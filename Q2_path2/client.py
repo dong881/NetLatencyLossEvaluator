@@ -1,4 +1,4 @@
-#位置 mini@miniPC:~/Q2_path2$ code client.py
+#位置 mini@miniPC:~/Q2_path2/client.py
 import socket
 import time
 
