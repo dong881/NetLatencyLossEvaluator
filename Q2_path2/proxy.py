@@ -5,9 +5,8 @@ import random
 
 def udp_proxy2():
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    proxy_socket.bind(('0.0.0.0', 5408))  # 綁定到埠 5408，監聽所有 IP
-
-    client_address = ('192.168.88.12', 5407)  # 客戶端的 IP 和埠
+    proxy_socket.bind(('0.0.0.0', 5408))  #設定proxy ip為0.0.0.0 讓proxy能夠監聽所有在port5408的ip(Q2 path2)
+    client_address = ('192.168.88.12', 5407)  #已設定為轉發實際client ip和port(Q2 path2)
     print("Proxy2 ready to forward packets from server to client")
 
     # 處理 1000 個封包（10 個封包 * 100 次）
