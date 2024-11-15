@@ -5,7 +5,7 @@ import time
 def udp_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    proxy2_address = ('192.168.88.111', 5454)  #已設定為實際server ip和port(Q2 path2)
+    proxy2_address = ('192.168.88.111', 5408)  #已設定為實際server轉發至proxy ip和port(Q2 path2) 
     print("Server starting to send packets via Proxy2")
 
     # 重複傳輸 100 次，每次傳輸 10 個封包
