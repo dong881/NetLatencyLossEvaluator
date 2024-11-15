@@ -32,15 +32,15 @@ def udp_client():
         if packet_count == 1:
             start_time = current_time
 
-        # Check if 10 packets have been received
-        if packet_count == 10:
-            # Calculate the throughput for the last 10 packets
+        # Check if 100 packets have been received
+        if packet_count == 100:
+            # Calculate the throughput for the last 100 packets
             time_elapsed = (current_time - start_time).total_seconds()  # Time in seconds
             if time_elapsed > 0:
                 throughput = (total_bytes / time_elapsed) * 8 / 1000  # Throughput in kbps
                 print(f"Throughput for last 10 packets: {throughput:.2f} kbps, time elapsed: {time_elapsed:2f}")
 
-            # Reset for the next 10 packets
+            # Reset for the next 100 packets
             packet_count = 0
             total_bytes = 0
             start_time = current_time  # Reset start time for the next group
