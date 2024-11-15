@@ -5,7 +5,7 @@ def udp_client():
     client_socket.bind(('192.168.88.12', 5405))  # Client's address and port
     print("Client listening on port 5405")
 
-    for i in range(10):
+    for i in range(100):
         message, _ = client_socket.recvfrom(1024)
         print(f"Client received: {message.decode()}")
 
