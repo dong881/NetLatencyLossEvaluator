@@ -11,9 +11,13 @@ def generate_packet_data(start: int, end: int, delimiter: str = "|") -> str:
     return delimiter.join(f"Packet {i}" for i in range(start, end + 1))
 
 class UDPServer:
-    def __init__(self, server_ip='192.168.88.21', server_port=5409, proxy_ip='192.168.88.111', proxy_port=5408):
+    def __init__(self, server_ip='192.168.88.21', server_port=5409):
         self.server_address = (server_ip, server_port)
-        self.proxy_address = (proxy_ip, proxy_port)
+        
+        # Define proxy paths
+        self.proxy_ip = '192.168.88.111'
+        self.proxy_path1 = (self.proxy_ip, 5406)  # Path 1 for last 5 packets
+        self.proxy_path2 = (self.proxy_ip, 5408)  # Path 2 for regular packets
         
         # Socket for sending data
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -36,6 +40,10 @@ class UDPServer:
         # Timing control
         self.min_interval = 0.1  # 100ms minimum interval between sends
         self.last_send_time = 0
+        
+        # Sequence tracking
+        self.total_sequences = 0
+        self.last_five_start = 0
         
     def start_ack_listener(self):
         """Start a thread to listen for ACKs"""
@@ -61,9 +69,15 @@ class UDPServer:
         elapsed_since_last_send = current_time - self.last_send_time
         
         if elapsed_since_last_send < self.min_interval:
-            # Calculate remaining time needed to wait
             sleep_time = self.min_interval - elapsed_since_last_send
             time.sleep(sleep_time)
+    
+    def get_proxy_address(self, sequence_number: int) -> tuple:
+        """Determine which proxy path to use based on sequence number"""
+        if sequence_number >= self.last_five_start:
+            print(f"Using Path 1 (port 5406) for packet {sequence_number}")
+            return self.proxy_path1
+        return self.proxy_path2
                 
     def send_packet(self, sequence_number: int, data: bytes, is_last: bool = False):
         """Send a single packet with sequence number"""
@@ -79,8 +93,11 @@ class UDPServer:
         if is_last:
             packet += b"END"
             
+        # Select appropriate proxy path
+        proxy_address = self.get_proxy_address(sequence_number)
+            
         # Send packet
-        self.server_socket.sendto(packet, self.proxy_address)
+        self.server_socket.sendto(packet, proxy_address)
         
         # Update last send time to include processing time
         self.last_send_time = time.time()
@@ -113,6 +130,10 @@ class UDPServer:
             retries += 1
         return False
 
+    def calculate_total_sequences(self, compressed_data: bytes, batch_size: int) -> int:
+        """Calculate total number of sequences needed"""
+        return (len(compressed_data) + batch_size - 1) // batch_size
+
     def send_data(self, runTimes=5):
         """Main method to send data with reliability"""
         self.start_ack_listener()
@@ -143,8 +164,15 @@ class UDPServer:
             with self.ack_lock:
                 self.ack_received.clear()
             
-            # Send data in chunks
+            # Calculate total sequences and set last five start
             batch_size = 1020
+            self.total_sequences = self.calculate_total_sequences(compressed_data, batch_size)
+            self.last_five_start = max(0, self.total_sequences - 5)
+            
+            print(f"Total sequences: {self.total_sequences}")
+            print(f"Last 5 sequences start at: {self.last_five_start}")
+            
+            # Send data in chunks
             sequence_number = 0
             self.retransmission_count = 0
             
