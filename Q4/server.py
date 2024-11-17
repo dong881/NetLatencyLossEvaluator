@@ -126,12 +126,12 @@ class UDPServer:
             print(f"\nStarting transmission {run + 1}/{runTimes}")
             self.last_send_time = 0
             
+            start_time = time.time()
             # Generate and compress data
             full_data = generate_packet_data(1, 100000)
             if run == 0:
                 print(f"Original data size: {len(full_data)} bytes")
             
-            start_time = time.time()
             compressed_data = compress_with_lzma(full_data)
             
             if run == 0:
