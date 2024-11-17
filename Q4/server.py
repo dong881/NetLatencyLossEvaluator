@@ -38,6 +38,10 @@ class UDPServer:
         self.total_sequences = 0
         self.last_five_start = 0
         
+        # Packet loss tracking
+        self.total_retransmissions = 0
+        self.total_packets_sent = 0
+        
     def start_ack_listener(self):
         """Start a thread to listen for ACKs"""
         self.ack_thread = threading.Thread(target=self._ack_listener, daemon=True)
@@ -84,6 +88,7 @@ class UDPServer:
             
         proxy_address = self.get_proxy_address(sequence_number)
         self.server_socket.sendto(packet, proxy_address)
+        self.total_packets_sent += 1
         self.last_send_time = time.time()
 
     def get_unacked_sequences(self) -> set:
@@ -93,7 +98,7 @@ class UDPServer:
                    if not self.ack_received[seq]}
 
     def handle_retransmissions(self, compressed_data: bytes, batch_size: int, 
-                             max_retries: int = 5, timeout: float = 0.01):
+                             max_retries: int = 5, timeout: float = 0.05):
         """Handle retransmission of unacked packets"""
         retry_count = 0
         while retry_count < max_retries:
@@ -106,6 +111,7 @@ class UDPServer:
                 chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
                 is_last = (seq == self.total_sequences - 1)
                 self.send_packet(seq, chunk, is_last)
+                self.total_retransmissions += 1
             time.sleep(timeout)  # Wait for ACKs to arrive
             retry_count += 1
             
@@ -121,10 +127,15 @@ class UDPServer:
         
         total_rtt = 0
         total_throughput = 0
+        runs_completed = 0
+        total_packet_loss_rate = 0
         
         for run in range(runTimes):
-            print(f"\nStarting transmission {run + 1}/{runTimes}")
             self.last_send_time = 0
+            
+            # Reset packet counting for this run
+            self.total_packets_sent = 0
+            self.total_retransmissions = 0
             
             start_time = time.time()
             # Generate and compress data
@@ -148,8 +159,7 @@ class UDPServer:
                 print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
                 print(f"Total sequences: {self.total_sequences}")
                 print("=====================================\n")
-                # print(f"Last 5 sequences start at: {self.last_five_start}")
-            
+            print(f"\nStarting transmission {run + 1}/{runTimes}")
             # First round: Send all packets without waiting for ACKs
             for seq in range(self.total_sequences):
                 chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
@@ -166,17 +176,21 @@ class UDPServer:
             total_time = end_time - start_time
             throughput = len(compressed_data) / total_time / 1024  # KB/s
             
-            # print(f"\nTransmission {run + 1} completed:")
+            # Calculate packet loss rate for this run
+            packet_loss_rate = self.total_retransmissions / self.total_sequences
+            total_packet_loss_rate += packet_loss_rate
+            
             print(f"Total time: {total_time:.2f} seconds")
-            print(f"Throughput: {throughput:.2f} KB/s")
             
             total_rtt += total_time
             total_throughput += throughput
+            runs_completed += 1
         
         # Print final statistics
         print("\nFinal Statistics:")
-        print(f"Average RTT in {runTimes} runs: {total_rtt/runTimes:.2f} seconds")
-        print(f"Average Throughput in {runTimes} runs: {total_throughput/runTimes:.2f} KB/s")
+        print(f"Average RTT in {runs_completed} runs: {total_rtt/runs_completed:.2f} seconds")
+        print(f"Average Throughput in {runs_completed} runs: {total_throughput/runs_completed:.2f} KB/s")
+        print(f"Average Packet Loss Rate: {(total_packet_loss_rate/runs_completed) * 100:.2f}% packets/sequence")
 
 if __name__ == "__main__":
     server = UDPServer()
