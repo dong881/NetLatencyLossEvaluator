@@ -47,6 +47,10 @@ def udp_client():
                     for packet in packets:
                         print(packet)
 
+                    # 顯示總封包數
+                    total_packets = len(packets)
+                    print(f"\nTotal packets received: {total_packets}")
+
                 except lzma.LZMAError:
                     print("Error: Failed to decompress data")
                 finally:
@@ -65,7 +69,7 @@ def udp_client():
                 # Send acknowledgment back to the server
                 ack_server_address = ('192.168.88.21', 5409)
                 print("Sending ACK to server")
-                ack_message = f"ACK for {len(packets)} packets"
+                ack_message = f"ACK for {total_packets} packets"
                 sock.sendto(ack_message.encode(), ack_server_address)
 
                 last_time = current_time
