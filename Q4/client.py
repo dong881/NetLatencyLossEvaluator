@@ -46,10 +46,10 @@ def udp_client():
             buffer[sequence_number] = data_chunk  # 儲存到緩衝區
 
         # 如果收到 END 並且所有序號齊全，則解壓縮
-        if max_sequence is not None and len(buffer) == max_sequence + 1:
+        if max_sequence is not None and len(buffer) == max_sequence:
             try:
                 # 按序號排序數據塊
-                sorted_data = b"".join(buffer[i] for i in range(max_sequence + 1))
+                sorted_data = b"".join(buffer[i] for i in range(max_sequence))
 
                 # 解壓縮數據
                 decompressed_data = decompress_with_lzma(sorted_data)
