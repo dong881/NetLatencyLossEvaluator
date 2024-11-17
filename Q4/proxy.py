@@ -28,7 +28,7 @@ def udp_proxy2_delay():
             print(f"Packet delayed: {len(data)} bytes")  # 輸出資料長度
         else:
             proxy_socket.sendto(data, client_address)  # 直接轉發數據
-            print(f"Forwarded immediately: {len(data)} bytes")  # 輸出資料長度
+            # print(f"Forwarded immediately: {len(data)} bytes")  # 輸出資料長度
 
 # 啟動代理
 udp_proxy2_delay()

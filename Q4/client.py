@@ -12,13 +12,15 @@ def split_packets(data: str, delimiter: str = "|") -> list:
 
 # 客戶端主程式
 def udp_client():
-    # 建立套接字
+    # 接收數據的套接字
     socket_5405 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     socket_5407 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    # 綁定至指定埠口
     socket_5405.bind(('192.168.88.12', 5405))
     socket_5407.bind(('192.168.88.12', 5407))
+
+    # 發送 ACK 的套接字
+    ack_client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ack_server_address = ('192.168.88.21', 5409)
 
     print("Client listening on ports 5405 and 5407")
 
@@ -56,13 +58,18 @@ def udp_client():
 
                 # 拆分並顯示每個 Packet
                 packets = split_packets(decompressed_data)
-                print("\nPackets received:")
-                for packet in packets:
-                    print(packet)
+                # print("\nPackets received:")
+                # for packet in packets:
+                #     print(packet)
 
                 # 顯示總封包數
                 total_packets = len(packets)
                 print(f"\nTotal packets received: {total_packets}")
+
+                # 傳送 ACK 確認
+                ack_message = f"ACK:{max_sequence}".encode("utf-8")
+                ack_client_socket.sendto(ack_message, ack_server_address)
+                print("Sent ACK to server")
 
             except lzma.LZMAError:
                 print("Error: Failed to decompress data")
