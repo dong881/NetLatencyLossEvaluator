@@ -33,6 +33,10 @@ class UDPServer:
         # Statistics
         self.retransmission_count = 0
         
+        # Timing control
+        self.min_interval = 0.1  # 100ms minimum interval between sends
+        self.last_send_time = 0
+        
     def start_ack_listener(self):
         """Start a thread to listen for ACKs"""
         self.ack_thread = threading.Thread(target=self._ack_listener, daemon=True)
@@ -50,15 +54,42 @@ class UDPServer:
                         self.ack_received[sequence_number] = True
             except Exception as e:
                 print(f"Error in ACK listener: {e}")
+
+    def wait_for_next_send(self):
+        """Calculate and wait for the appropriate time before next send"""
+        current_time = time.time()
+        elapsed_since_last_send = current_time - self.last_send_time
+        
+        if elapsed_since_last_send < self.min_interval:
+            # Calculate remaining time needed to wait
+            sleep_time = self.min_interval - elapsed_since_last_send
+            time.sleep(sleep_time)
                 
     def send_packet(self, sequence_number: int, data: bytes, is_last: bool = False):
         """Send a single packet with sequence number"""
+        # Wait for appropriate send time
+        self.wait_for_next_send()
+        
+        # Record start of processing time
+        process_start = time.time()
+        
+        # Prepare packet
         sequence_number_bytes = sequence_number.to_bytes(4, "big")
         packet = sequence_number_bytes + data
         if is_last:
             packet += b"END"
+            
+        # Send packet
         self.server_socket.sendto(packet, self.proxy_address)
         
+        # Update last send time to include processing time
+        self.last_send_time = time.time()
+        
+        # For debugging/monitoring
+        processing_time = self.last_send_time - process_start
+        if sequence_number % 100 == 0:  # Log every 100th packet
+            print(f"Packet {sequence_number}: Processing time: {processing_time*1000:.2f}ms")
+                
     def wait_for_ack(self, sequence_number: int, timeout: float = 1.0) -> bool:
         """Wait for ACK for a specific sequence number"""
         start_time = time.time()
@@ -92,6 +123,9 @@ class UDPServer:
         for run in range(runTimes):
             print(f"\nStarting transmission {run + 1}/{runTimes}")
             
+            # Reset timing for new transmission
+            self.last_send_time = 0
+            
             # Generate and compress data
             full_data = generate_packet_data(1, 100000)
             if run == 0:
@@ -122,7 +156,6 @@ class UDPServer:
                     print(f"Failed to send packet {sequence_number} after max retries")
                 
                 sequence_number += 1
-                time.sleep(0.01)  # Small delay to prevent network congestion
             
             end_time = time.time()
             total_time = end_time - start_time
