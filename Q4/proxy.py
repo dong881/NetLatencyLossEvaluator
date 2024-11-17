@@ -49,7 +49,7 @@ def check_idle_state():
 
 def format_log(time, tag, message):
     """格式化輸出行"""
-    return f"{time%100:.2f} [{tag}] {message}"
+    return f"{time%100:.2f} [{tag}] {message}\n"
 
 
 def udp_proxy1_loss():
@@ -73,17 +73,17 @@ def udp_proxy1_loss():
 
             if random.random() > 0.1:  # 90% chance to forward
                 proxy_socket.sendto(data, client_address)
-                print(format_log(current_time, "Proxy1", f"Forwarded: {len(data)} bytes"))
+                print(format_log(current_time, "Proxy1", f"Forwarded: {len(data)} bytes"),end="")
             else:
-                print(format_log(current_time, "Proxy1", f"Packet lost: {len(data)} bytes"))
+                print(format_log(current_time, "Proxy1", f"Packet lost: {len(data)} bytes"),end="")
         except Exception as e:
-            print(format_log(time.time(), "Proxy1", f"Error: {e}"))
+            print(format_log(time.time(), "Proxy1", f"Error: {e}"),end="")
 
 
 def delay_packet(data, client_address, proxy_socket):
     time.sleep(0.5)  # 模擬延遲
     proxy_socket.sendto(data, client_address)
-    print(format_log(time.time(), "Proxy2", f"Forwarded after delay: {len(data)} bytes"))
+    print(format_log(time.time(), "Proxy2", f"Forwarded after delay: {len(data)} bytes"),end="")
 
 
 def udp_proxy2_delay():
@@ -111,12 +111,12 @@ def udp_proxy2_delay():
                     args=(data, client_address, proxy_socket),
                     daemon=True  # 設為daemon線程,這樣主程式結束時會自動結束
                 ).start()
-                print(format_log(current_time, "Proxy2", f"Packet delayed: {len(data)} bytes"))
+                print(format_log(current_time, "Proxy2", f"Packet delayed: {len(data)} bytes"),end="")
             else:
                 proxy_socket.sendto(data, client_address)
-                print(format_log(current_time, "Proxy2", f"Forwarded: {len(data)} bytes"))
+                print(format_log(current_time, "Proxy2", f"Forwarded: {len(data)} bytes"),end="")
         except Exception as e:
-            print(format_log(time.time(), "Proxy2", f"Error: {e}"))
+            print(format_log(time.time(), "Proxy2", f"Error: {e}"),end="")
 
 
 
