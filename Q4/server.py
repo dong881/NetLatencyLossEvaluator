@@ -22,7 +22,7 @@ def ack_listener(ack_server_socket, ack_event, rtt_result):
             ack_event.set()  # 通知主線程已接收到 ACK
 
 # UDP 伺服器邏輯
-def udp_server():
+def udp_server(runTimes=5):
     # 發送封包的套接字
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     proxy_address = ('192.168.88.111', 5408)  # 目標地址
@@ -37,10 +37,12 @@ def udp_server():
     threading.Thread(target=ack_listener, args=(ack_server_socket, ack_event, rtt_result), daemon=True).start()
 
     print("Server starting to send packets and listening for ACKs")
-
+    total_rtt = 0
+    total_throughput = 0
+    counter = runTimes +1
     while True:
-        user_input = input("Enter 'g' to send packets, 'q' to quit: ")
-        if user_input == 'g':
+        counter -= 1
+        if counter > 0:
             # 每次開始傳輸時重置事件和結果
             ack_event.clear()
             rtt_result["ack_time"] = None
@@ -48,12 +50,14 @@ def udp_server():
 
             # 生成完整數據
             full_data = generate_packet_data(1, 100000)
-            print(f"Original data size: {len(full_data)} bytes")
+            if counter == runTimes: print(f"Original data size: {len(full_data)} bytes")
             # 記錄開始時間
             start_time = time.time()
             compressed_data = compress_with_lzma(full_data)  # 壓縮整段數據
-            print(f"Compressed data size: {len(compressed_data)} bytes")
-            print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
+            if counter == runTimes: 
+                print(f"Compressed data size: {len(compressed_data)} bytes")
+                print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
+                print("=====================================\n")
 
             # 分批傳送壓縮數據
             batch_size = 1020  # 每次傳送的數據塊大小（去掉4字節序號）
@@ -74,7 +78,7 @@ def udp_server():
                 time.sleep(0.1)  # 避免過快發送造成網絡擁塞
 
             # 等待 ACK 確認
-            print("Waiting for ACK from client...")
+            # print("Waiting for ACK from client...")
             ack_event.wait()  # 等待 ACK 事件觸發
 
             # 記錄結束時間
@@ -89,13 +93,17 @@ def udp_server():
             total_time = end_time - start_time
             throughput = len(compressed_data) / total_time / 1024  # KB/s
 
-            print(f"\nTotal packets sent: {sequence_number}")
+            # print(f"\nTotal packets sent: {sequence_number}")
             print(f"Total time to send and acknowledge: {total_time:.2f} seconds")
             print(f"Throughput: {throughput:.2f} KB/s")
-
-        elif user_input.lower() == 'q':
-            print("Exiting server.")
-            break
+            total_rtt += total_time
+            total_throughput += throughput
+        else:
+            average_rtt = total_rtt / runTimes
+            average_throughput = total_throughput / runTimes
+            print(f"Average RTT in {runTimes} runs: {average_rtt:.2f} seconds")
+            print(f"Average Throughput in {runTimes} runs: {average_throughput:.2f} KB/s")
+            return
 
 # 啟動伺服器
-udp_server()
+udp_server(10)
