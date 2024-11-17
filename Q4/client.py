@@ -37,19 +37,19 @@ def udp_client():
             sequence_number = int.from_bytes(message[:4], "big")  # 前4位是序號
             data_chunk = message[4:]  # 後面的資料部分
 
-            # 檢查是否為 END tag
-            if data_chunk == b"END":
+            # 檢查是否包含 END tag
+            if b"END" in data_chunk:
+                data_chunk, _ = data_chunk.split(b"END", 1)
                 max_sequence = sequence_number
-                print(f"Received END packet with sequence number {max_sequence}")
-                continue
+                print(f"Received END tag with sequence number {max_sequence}")
 
             buffer[sequence_number] = data_chunk  # 儲存到緩衝區
 
         # 如果收到 END 並且所有序號齊全，則解壓縮
-        if max_sequence is not None and len(buffer) == max_sequence:
+        if max_sequence is not None and len(buffer) == max_sequence + 1:
             try:
                 # 按序號排序數據塊
-                sorted_data = b"".join(buffer[i] for i in range(max_sequence))
+                sorted_data = b"".join(buffer[i] for i in range(max_sequence + 1))
 
                 # 解壓縮數據
                 decompressed_data = decompress_with_lzma(sorted_data)
