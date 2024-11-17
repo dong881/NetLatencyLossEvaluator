@@ -30,11 +30,15 @@ def udp_server():
             start_time = time.time()
 
             # 分批傳送壓縮數據
-            batch_size = 1024  # 每次傳送的數據塊大小
+            batch_size = 1020  # 每次傳送的數據塊大小（去掉4字節序號）
+            sequence_number = 0  # 封包序號
             for i in range(0, len(compressed_data), batch_size):
                 chunk = compressed_data[i:i + batch_size]
-                server_socket.sendto(chunk, proxy_address)  # 傳送每個數據塊
-                print(f"Sent chunk {i // batch_size + 1}: {len(chunk)} bytes")
+                sequence_number_bytes = sequence_number.to_bytes(4, "big")  # 4字節序號
+                packet = sequence_number_bytes + chunk  # 組合序號和數據塊
+                server_socket.sendto(packet, proxy_address)  # 傳送封包
+                print(f"Sent chunk {sequence_number}: {len(chunk)} bytes")
+                sequence_number += 1
                 time.sleep(0.1)  # 避免過快發送造成網絡擁塞
 
             # 記錄結束時間
