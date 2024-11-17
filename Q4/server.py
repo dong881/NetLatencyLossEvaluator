@@ -30,13 +30,6 @@ class UDPServer:
         self.ack_received = defaultdict(bool)
         self.ack_lock = threading.Lock()
         
-        # Control flags
-        self.transmission_active = False
-        self.current_batch_complete = threading.Event()
-        
-        # Statistics
-        self.retransmission_count = 0
-        
         # Timing control
         self.min_interval = 0.1  # 100ms minimum interval between sends
         self.last_send_time = 0
@@ -75,64 +68,52 @@ class UDPServer:
     def get_proxy_address(self, sequence_number: int) -> tuple:
         """Determine which proxy path to use based on sequence number"""
         if sequence_number >= self.last_five_start:
-            print(f"Using Path 1 (port 5406) for packet {sequence_number}")
+            # print(f"Using Path 1 (port 5406) for packet {sequence_number}")
             return self.proxy_path1
         return self.proxy_path2
                 
     def send_packet(self, sequence_number: int, data: bytes, is_last: bool = False):
         """Send a single packet with sequence number"""
-        # Wait for appropriate send time
         self.wait_for_next_send()
         
-        # Record start of processing time
-        process_start = time.time()
-        
-        # Prepare packet
         sequence_number_bytes = sequence_number.to_bytes(4, "big")
         packet = sequence_number_bytes + data
         if is_last:
             packet += b"END"
             
-        # Select appropriate proxy path
         proxy_address = self.get_proxy_address(sequence_number)
-            
-        # Send packet
         self.server_socket.sendto(packet, proxy_address)
-        
-        # Update last send time to include processing time
         self.last_send_time = time.time()
-        
-        # For debugging/monitoring
-        processing_time = self.last_send_time - process_start
-        if sequence_number % 100 == 0:  # Log every 100th packet
-            print(f"Packet {sequence_number}: Processing time: {processing_time*1000:.2f}ms")
-                
-    def wait_for_ack(self, sequence_number: int, timeout: float = 1.0) -> bool:
-        """Wait for ACK for a specific sequence number"""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            with self.ack_lock:
-                if self.ack_received[sequence_number]:
-                    return True
-            time.sleep(0.01)
-        return False
-        
-    def send_with_retry(self, sequence_number: int, data: bytes, is_last: bool = False, 
-                       max_retries: int = 3, timeout: float = 1.0):
-        """Send packet and retry if ACK not received"""
-        retries = 0
-        while retries < max_retries:
-            self.send_packet(sequence_number, data, is_last)
-            if self.wait_for_ack(sequence_number, timeout):
-                return True
-            print(f"Retransmitting packet {sequence_number}")
-            self.retransmission_count += 1
-            retries += 1
-        return False
 
-    def calculate_total_sequences(self, compressed_data: bytes, batch_size: int) -> int:
-        """Calculate total number of sequences needed"""
-        return (len(compressed_data) + batch_size - 1) // batch_size
+    def get_unacked_sequences(self, timeout: float = 1.0) -> set:
+        """Return set of sequence numbers that haven't been ACKed"""
+        time.sleep(timeout)  # Wait for ACKs to arrive
+        with self.ack_lock:
+            return {seq for seq in range(self.total_sequences) 
+                   if not self.ack_received[seq]}
+
+    def handle_retransmissions(self, compressed_data: bytes, batch_size: int, 
+                             max_retries: int = 3):
+        """Handle retransmission of unacked packets"""
+        retry_count = 0
+        while retry_count < max_retries:
+            unacked = self.get_unacked_sequences()
+            if not unacked:
+                return True
+                
+            print(f"Retransmitting {len(unacked)} packets, attempt {retry_count + 1}")
+            for seq in sorted(unacked):
+                chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
+                is_last = (seq == self.total_sequences - 1)
+                self.send_packet(seq, chunk, is_last)
+                
+            retry_count += 1
+            
+        remaining_unacked = self.get_unacked_sequences()
+        if remaining_unacked:
+            print(f"Failed to transmit {len(remaining_unacked)} packets after {max_retries} attempts")
+            return False
+        return True
 
     def send_data(self, runTimes=5):
         """Main method to send data with reliability"""
@@ -143,8 +124,6 @@ class UDPServer:
         
         for run in range(runTimes):
             print(f"\nStarting transmission {run + 1}/{runTimes}")
-            
-            # Reset timing for new transmission
             self.last_send_time = 0
             
             # Generate and compress data
@@ -160,39 +139,36 @@ class UDPServer:
                 print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
                 print("=====================================\n")
             
-            # Reset ACK tracking for new transmission
+            # Reset ACK tracking
             with self.ack_lock:
                 self.ack_received.clear()
             
-            # Calculate total sequences and set last five start
+            # Calculate sequences
             batch_size = 1020
-            self.total_sequences = self.calculate_total_sequences(compressed_data, batch_size)
+            self.total_sequences = (len(compressed_data) + batch_size - 1) // batch_size
             self.last_five_start = max(0, self.total_sequences - 5)
             
             print(f"Total sequences: {self.total_sequences}")
-            print(f"Last 5 sequences start at: {self.last_five_start}")
+            # print(f"Last 5 sequences start at: {self.last_five_start}")
             
-            # Send data in chunks
-            sequence_number = 0
-            self.retransmission_count = 0
+            # First round: Send all packets without waiting for ACKs
+            for seq in range(self.total_sequences):
+                chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
+                is_last = (seq == self.total_sequences - 1)
+                self.send_packet(seq, chunk, is_last)
             
-            for i in range(0, len(compressed_data), batch_size):
-                chunk = compressed_data[i:i + batch_size]
-                is_last = (i + batch_size >= len(compressed_data))
-                
-                if not self.send_with_retry(sequence_number, chunk, is_last):
-                    print(f"Failed to send packet {sequence_number} after max retries")
-                
-                sequence_number += 1
+            # Handle retransmissions
+            if not self.handle_retransmissions(compressed_data, batch_size):
+                print("Transmission failed")
+                continue
             
             end_time = time.time()
             total_time = end_time - start_time
             throughput = len(compressed_data) / total_time / 1024  # KB/s
             
-            print(f"Transmission {run + 1} completed:")
+            # print(f"\nTransmission {run + 1} completed:")
             print(f"Total time: {total_time:.2f} seconds")
             print(f"Throughput: {throughput:.2f} KB/s")
-            print(f"Retransmissions: {self.retransmission_count}")
             
             total_rtt += total_time
             total_throughput += throughput
@@ -202,7 +178,6 @@ class UDPServer:
         print(f"Average RTT in {runTimes} runs: {total_rtt/runTimes:.2f} seconds")
         print(f"Average Throughput in {runTimes} runs: {total_throughput/runTimes:.2f} KB/s")
 
-# Usage
 if __name__ == "__main__":
     server = UDPServer()
     server.send_data(10)
