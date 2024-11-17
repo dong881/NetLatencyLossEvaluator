@@ -69,7 +69,7 @@ class UDPServer:
         """Determine which proxy path to use based on sequence number"""
         if sequence_number >= self.last_five_start:
             # print(f"Using Path 1 (port 5406) for packet {sequence_number}")
-            return self.proxy_path2
+            return self.proxy_path1
         return self.proxy_path2
                 
     def send_packet(self, sequence_number: int, data: bytes, is_last: bool = False):
@@ -85,15 +85,14 @@ class UDPServer:
         self.server_socket.sendto(packet, proxy_address)
         self.last_send_time = time.time()
 
-    def get_unacked_sequences(self, timeout: float = 1.0) -> set:
+    def get_unacked_sequences(self) -> set:
         """Return set of sequence numbers that haven't been ACKed"""
-        time.sleep(timeout)  # Wait for ACKs to arrive
         with self.ack_lock:
             return {seq for seq in range(self.total_sequences) 
                    if not self.ack_received[seq]}
 
     def handle_retransmissions(self, compressed_data: bytes, batch_size: int, 
-                             max_retries: int = 3):
+                             max_retries: int = 5, timeout: float = 0.01):
         """Handle retransmission of unacked packets"""
         retry_count = 0
         while retry_count < max_retries:
@@ -106,7 +105,7 @@ class UDPServer:
                 chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
                 is_last = (seq == self.total_sequences - 1)
                 self.send_packet(seq, chunk, is_last)
-                
+            time.sleep(timeout)  # Wait for ACKs to arrive
             retry_count += 1
             
         remaining_unacked = self.get_unacked_sequences()
