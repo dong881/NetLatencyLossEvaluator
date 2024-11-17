@@ -46,12 +46,12 @@ def udp_server():
             rtt_result["ack_time"] = None
             rtt_result["max_sequence"] = None
 
-            # 記錄開始時間
-            start_time = time.time()
             # 生成完整數據
             full_data = generate_packet_data(1, 100000)
-            compressed_data = compress_with_lzma(full_data)  # 壓縮整段數據
             print(f"Original data size: {len(full_data)} bytes")
+            # 記錄開始時間
+            start_time = time.time()
+            compressed_data = compress_with_lzma(full_data)  # 壓縮整段數據
             print(f"Compressed data size: {len(compressed_data)} bytes")
             print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
 
