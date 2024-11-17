@@ -41,6 +41,11 @@ def udp_server():
                 sequence_number += 1
                 time.sleep(0.1)  # 避免過快發送造成網絡擁塞
 
+            # 傳送最後的 END Tag
+            end_packet = sequence_number.to_bytes(4, "big") + b"END"
+            server_socket.sendto(end_packet, proxy_address)
+            print(f"Sent END packet with sequence number {sequence_number}")
+
             # 記錄結束時間
             end_time = time.time()
 
