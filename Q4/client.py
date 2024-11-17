@@ -53,3 +53,4 @@ def udp_client():
                     print("Error: Failed to decompress data")
                 finally:
                     buffer = b""  # 清空緩衝區準備接收下一批數據
+udp_client()
