@@ -53,6 +53,7 @@ class UDPServer:
                     sequence_number = int(ack_data[1])
                     with self.ack_lock:
                         self.ack_received[sequence_number] = True
+                        # print(f"Received ACK for packet {sequence_number}")
             except Exception as e:
                 print(f"Error in ACK listener: {e}")
 
@@ -100,8 +101,8 @@ class UDPServer:
             if not unacked:
                 return True
                 
-            print(f"Retransmitting {len(unacked)} packets, attempt {retry_count + 1}")
             for seq in sorted(unacked):
+                print(f"Retransmitting packet {seq}, attempt {retry_count + 1}")
                 chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
                 is_last = (seq == self.total_sequences - 1)
                 self.send_packet(seq, chunk, is_last)
@@ -133,11 +134,6 @@ class UDPServer:
             
             compressed_data = compress_with_lzma(full_data)
             
-            if run == 0:
-                print(f"Compressed data size: {len(compressed_data)} bytes")
-                print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
-                print("=====================================\n")
-            
             # Reset ACK tracking
             with self.ack_lock:
                 self.ack_received.clear()
@@ -147,8 +143,12 @@ class UDPServer:
             self.total_sequences = (len(compressed_data) + batch_size - 1) // batch_size
             self.last_five_start = max(0, self.total_sequences - 5)
             
-            print(f"Total sequences: {self.total_sequences}")
-            # print(f"Last 5 sequences start at: {self.last_five_start}")
+            if run == 0:
+                print(f"Compressed data size: {len(compressed_data)} bytes")
+                print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
+                print(f"Total sequences: {self.total_sequences}")
+                print("=====================================\n")
+                # print(f"Last 5 sequences start at: {self.last_five_start}")
             
             # First round: Send all packets without waiting for ACKs
             for seq in range(self.total_sequences):
@@ -157,6 +157,7 @@ class UDPServer:
                 self.send_packet(seq, chunk, is_last)
             
             # Handle retransmissions
+            time.sleep(0.05)  # Wait for ACKs to arrive
             if not self.handle_retransmissions(compressed_data, batch_size):
                 print("Transmission failed")
                 continue
