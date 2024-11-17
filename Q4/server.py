@@ -69,7 +69,7 @@ class UDPServer:
         """Determine which proxy path to use based on sequence number"""
         if sequence_number >= self.last_five_start:
             # print(f"Using Path 1 (port 5406) for packet {sequence_number}")
-            return self.proxy_path1
+            return self.proxy_path2
         return self.proxy_path2
                 
     def send_packet(self, sequence_number: int, data: bytes, is_last: bool = False):
