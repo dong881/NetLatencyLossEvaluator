@@ -1,80 +1,91 @@
 import socket
 import select
 import lzma
+from collections import defaultdict
 
-# 解壓縮
-def decompress_with_lzma(compressed_data: bytes) -> str:
-    return lzma.decompress(compressed_data).decode("utf-8")
+class UDPClient:
+    def __init__(self, ports=[5405, 5407], client_ip='192.168.88.12', server_ip='192.168.88.21', server_port=5409):
+        # Initialize receive sockets
+        self.receive_sockets = []
+        for port in ports:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.bind((client_ip, port))
+            self.receive_sockets.append(sock)
+            
+        # Initialize ACK socket
+        self.ack_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_address = (server_ip, server_port)
+        
+        # Buffer for received packets
+        self.buffer = {}
+        self.received_sequences = set()
+        
+    def decompress_with_lzma(self, compressed_data: bytes) -> str:
+        return lzma.decompress(compressed_data).decode("utf-8")
+        
+    def split_packets(self, data: str, delimiter: str = "|") -> list:
+        return data.split(delimiter)
+        
+    def send_ack(self, sequence_number: int):
+        """Send ACK for a specific sequence number"""
+        ack_message = f"ACK:{sequence_number}".encode("utf-8")
+        self.ack_socket.sendto(ack_message, self.server_address)
+        
+    def process_complete_data(self):
+        """Process and decompress complete data when all packets are received"""
+        try:
+            # Combine all packets in order
+            sorted_data = b"".join(self.buffer[i] for i in range(max(self.received_sequences) + 1))
+            
+            # Decompress data
+            decompressed_data = self.decompress_with_lzma(sorted_data)
+            packets = self.split_packets(decompressed_data)
+            
+            print(f"\nReceived and processed {len(packets)} packets successfully")
+            
+            # Clear buffers for next transmission
+            self.buffer.clear()
+            self.received_sequences.clear()
+            
+            return True
+        except lzma.LZMAError as e:
+            print(f"Error decompressing data: {e}")
+            return False
+            
+    def start_receiving(self):
+        """Main receive loop"""
+        print("Client started listening for packets...")
+        
+        while True:
+            readable, _, _ = select.select(self.receive_sockets, [], [])
+            
+            for sock in readable:
+                try:
+                    message, _ = sock.recvfrom(1024)
+                    
+                    # Extract sequence number and data
+                    sequence_number = int.from_bytes(message[:4], "big")
+                    data = message[4:]
+                    
+                    # Check for END marker
+                    is_last = False
+                    if b"END" in data:
+                        data, _ = data.split(b"END", 1)
+                        is_last = True
+                    
+                    # Store data and send ACK
+                    self.buffer[sequence_number] = data
+                    self.received_sequences.add(sequence_number)
+                    self.send_ack(sequence_number)
+                    
+                    # Process complete transmission if this was the last packet
+                    if is_last and sequence_number == max(self.received_sequences):
+                        self.process_complete_data()
+                        
+                except Exception as e:
+                    print(f"Error processing packet: {e}")
 
-# 拆分數據
-def split_packets(data: str, delimiter: str = "|") -> list:
-    return data.split(delimiter)
-
-# 客戶端主程式
-def udp_client():
-    # 接收數據的套接字
-    socket_5405 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_5407 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_5405.bind(('192.168.88.12', 5405))
-    socket_5407.bind(('192.168.88.12', 5407))
-
-    # 發送 ACK 的套接字
-    ack_client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    ack_server_address = ('192.168.88.21', 5409)
-
-    print("Client listening on ports 5405 and 5407")
-
-    sockets = [socket_5405, socket_5407]  # 監控的套接字列表
-    buffer = {}  # 使用字典儲存接收到的數據塊（key: 序號, value: 數據塊）
-    max_sequence = None  # 最大序列號 (從 END Tag 獲得)
-
-    while True:
-        # 使用 select 等待任一套接字接收數據
-        readable, _, _ = select.select(sockets, [], [])
-
-        for sock in readable:
-            message, _ = sock.recvfrom(1024)  # 接收訊息
-
-            # 解析序號和數據塊
-            sequence_number = int.from_bytes(message[:4], "big")  # 前4位是序號
-            data_chunk = message[4:]  # 後面的資料部分
-
-            # 檢查是否包含 END tag
-            if b"END" in data_chunk:
-                data_chunk, _ = data_chunk.split(b"END", 1)
-                max_sequence = sequence_number
-                print(f"Received END tag with sequence number {max_sequence}")
-
-            buffer[sequence_number] = data_chunk  # 儲存到緩衝區
-
-        # 如果收到 END 並且所有序號齊全，則解壓縮
-        if max_sequence is not None and len(buffer) == max_sequence + 1:
-            try:
-                # 按序號排序數據塊
-                sorted_data = b"".join(buffer[i] for i in range(max_sequence + 1))
-
-                # 解壓縮數據
-                decompressed_data = decompress_with_lzma(sorted_data)
-
-                # 拆分並顯示每個 Packet
-                packets = split_packets(decompressed_data)
-                # print("\nPackets received:")
-                # for packet in packets:
-                #     print(packet)
-
-                # 顯示總封包數
-                total_packets = len(packets)
-                print(f"\nTotal packets received: {total_packets}")
-
-                # 傳送 ACK 確認
-                ack_message = f"ACK:{max_sequence}".encode("utf-8")
-                ack_client_socket.sendto(ack_message, ack_server_address)
-                print("Sent ACK to server")
-
-            except lzma.LZMAError:
-                print("Error: Failed to decompress data")
-            finally:
-                buffer.clear()  # 清空緩衝區準備接收下一批數據
-                max_sequence = None
-
-udp_client()
+# Usage
+if __name__ == "__main__":
+    client = UDPClient()
+    client.start_receiving()
