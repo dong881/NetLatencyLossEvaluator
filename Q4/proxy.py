@@ -6,7 +6,7 @@ import random
 def delay_packet(data, client_address, proxy_socket):
     time.sleep(0.5)  # 模擬延遲
     proxy_socket.sendto(data, client_address)
-    print(f"[Proxy2] Forwarded after delay: {len(data)} bytes")
+    print(f"[Proxy2] Forwarded after delay: {len(data)} bytes at {time.time()}")
 
 def udp_proxy1_loss():
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -19,7 +19,7 @@ def udp_proxy1_loss():
             data, _ = proxy_socket.recvfrom(1024)
             if random.random() > 0.1:  # 90% chance to forward
                 proxy_socket.sendto(data, client_address)
-                print(f"[Proxy1] Forwarded: {len(data)} bytes")
+                print(f"[Proxy1] Forwarded: {len(data)} bytes at {time.time()}")
             else:
                 print(f"[Proxy1] Packet lost: {len(data)} bytes")
         except Exception as e:
@@ -44,7 +44,7 @@ def udp_proxy2_delay():
                 print(f"[Proxy2] Packet delayed: {len(data)} bytes")
             else:
                 proxy_socket.sendto(data, client_address)
-                print(f"[Proxy2] Forwarded immediately: {len(data)} bytes")
+                print(f"[Proxy2] Forwarded immediately: {len(data)} bytes, at {time.time()}")
         except Exception as e:
             print(f"[Proxy2] Error: {e}")
 
