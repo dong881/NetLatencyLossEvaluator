@@ -19,9 +19,9 @@ def udp_proxy1_loss():
             data, _ = proxy_socket.recvfrom(1024)
             if random.random() > 0.1:  # 90% chance to forward
                 proxy_socket.sendto(data, client_address)
-                print(f"[Proxy1] Forwarded: {data.decode()}")
+                print(f"[Proxy1] Forwarded: {len(data)} bytes")
             else:
-                print(f"[Proxy1] Packet lost: {data.decode()}")
+                print(f"[Proxy1] Packet lost: {len(data)} bytes")
         except Exception as e:
             print(f"[Proxy1] Error: {e}")
 
