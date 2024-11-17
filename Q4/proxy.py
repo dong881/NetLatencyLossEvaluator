@@ -10,6 +10,8 @@ stats = {
     'packet_count': 0,         # 總處理封包數量
     'data_total': 0,           # 總傳輸的資料大小
     'idle_logged': False,      # 是否已記錄 Idle 狀態
+    'loss_count': 0,           # 損失封包數
+    'delay_count': 0           # 延遲封包數
 }
 
 def reset_stats():
@@ -19,22 +21,27 @@ def reset_stats():
     stats['packet_count'] = 0
     stats['data_total'] = 0
     stats['idle_logged'] = False
+    stats['loss_count'] = 0
+    stats['delay_count'] = 0
 
 
 def log_idle_state():
     """記錄並輸出 Idle 狀態的統計數據"""
     if stats['packet_count'] > 0 and stats['start_time'] is not None:
         elapsed_time = stats['last_packet_time'] - stats['start_time']
-        # avg_throughput = stats['data_total'] / elapsed_time if elapsed_time > 0 else 0
+        loss_rate = (stats['loss_count'] / stats['packet_count']) * 100 if stats['packet_count'] > 0 else 0
+        delay_rate = (stats['delay_count'] / stats['packet_count']) * 100 if stats['packet_count'] > 0 else 0
 
         # 段落輸出 Idle State
         print("=" * 50)
         print(f"[Idle State] No packets received for 1 seconds")
         print(f"  Time: {elapsed_time:.2f} seconds")
         print(f"  Packets: {stats['packet_count']} | Total Data: {stats['data_total']} bytes")
-        # print(f"  Avg Throughput: {avg_throughput:.2f} bytes/sec")
+        print(f"  Loss Count: {stats['loss_count']} | Loss Rate: {loss_rate:.2f}%")
+        print(f"  Delay Count: {stats['delay_count']} | Delay Rate: {delay_rate:.2f}%")
         print("=" * 50)
         stats['idle_logged'] = True  # 標記已記錄 Idle 狀態
+        reset_stats()  # 重置統計數據
 
 
 def check_idle_state():
@@ -73,17 +80,18 @@ def udp_proxy1_loss():
 
             if random.random() > 0.1:  # 90% chance to forward
                 proxy_socket.sendto(data, client_address)
-                print(format_log(current_time, "Proxy1", f"Forwarded: {len(data)} bytes"),end="")
+                print(format_log(current_time, "Proxy1", f"Forwarded: {len(data)} bytes"), end="")
             else:
-                print(format_log(current_time, "Proxy1", f"Packet lost: {len(data)} bytes"),end="")
+                stats['loss_count'] += 1  # 增加丟包計數
+                print(format_log(current_time, "Proxy1", f"Packet lost: {len(data)} bytes"), end="")
         except Exception as e:
-            print(format_log(time.time(), "Proxy1", f"Error: {e}"),end="")
+            print(format_log(time.time(), "Proxy1", f"Error: {e}"), end="")
 
 
 def delay_packet(data, client_address, proxy_socket):
     time.sleep(0.5)  # 模擬延遲
     proxy_socket.sendto(data, client_address)
-    print(format_log(time.time(), "Proxy2", f"Forwarded after delay: {len(data)} bytes"),end="")
+    print(format_log(time.time(), "Proxy2", f"Forwarded after delay: {len(data)} bytes"), end="")
 
 
 def udp_proxy2_delay():
@@ -106,18 +114,18 @@ def udp_proxy2_delay():
             stats['idle_logged'] = False  # 清除 Idle 狀態標記
 
             if random.random() < 0.05:  # 5% chance of delay
+                stats['delay_count'] += 1  # 增加延遲計數
                 threading.Thread(
                     target=delay_packet, 
                     args=(data, client_address, proxy_socket),
                     daemon=True  # 設為daemon線程,這樣主程式結束時會自動結束
                 ).start()
-                print(format_log(current_time, "Proxy2", f"Packet delayed: {len(data)} bytes"),end="")
+                print(format_log(current_time, "Proxy2", f"Packet delayed: {len(data)} bytes"), end="")
             else:
                 proxy_socket.sendto(data, client_address)
-                print(format_log(current_time, "Proxy2", f"Forwarded: {len(data)} bytes"),end="")
+                print(format_log(current_time, "Proxy2", f"Forwarded: {len(data)} bytes"), end="")
         except Exception as e:
-            print(format_log(time.time(), "Proxy2", f"Error: {e}"),end="")
-
+            print(format_log(time.time(), "Proxy2", f"Error: {e}"), end="")
 
 
 def main():
