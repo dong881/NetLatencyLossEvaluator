@@ -23,10 +23,10 @@ def udp_server():
     print("Server starting to send packets")
 
     while True:
-        user_input = input("Enter '1' to send packets, 'q' to quit: ")
-        if user_input == '1':
+        user_input = input("Enter 'g' to send packets, 'q' to quit: ")
+        if user_input == 'g':
             # 生成完整數據
-            full_data = generate_packet_data(1, 1000)
+            full_data = generate_packet_data(1, 100000)
             compressed_data = compress_with_lzma(full_data)  # 壓縮整段數據
             print(f"Compressed data size: {len(compressed_data)} bytes")
             
@@ -34,7 +34,6 @@ def udp_server():
             batch_size = 1024  # 每次傳送的數據塊大小
             for i in range(0, len(compressed_data), batch_size):
                 chunk = compressed_data[i:i + batch_size]
-                print(chunk)
                 server_socket.sendto(chunk, proxy_address)  # 傳送每個數據塊
                 print(f"Sent chunk {i // batch_size + 1}: {len(chunk)} bytes")
                 time.sleep(0.1)  # 避免過快發送造成網絡擁塞
