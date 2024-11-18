@@ -88,6 +88,14 @@ async function fetchStats() {
     } catch (error) {
         console.error('Error fetching stats:', error);
     }
+
+    // {
+    //     'compression': {'original_size', 'compressed_size', 'ratio'},
+    //     'transmission': {'current_run', 'total_runs', 'status'},
+    //     'performance': {'total_rtt', 'average_rtt', 'average_throughput', 'average_packet_loss_rate'},
+    //     'paths': {'path1': {'packets', 'success'}, 'path2': {'packets', 'success'}},
+    //     'packets': [{'sequence', 'timestamp', 'path', 'size', 'type', 'status'}]
+    // }
 }
 
 function updateUI(stats) {
