@@ -129,8 +129,7 @@ class Database:
         packets = c.fetchall()
         conn.close()
         return packets
-
-
+        
 class UDPServerMonitor:
     def __init__(self):
         self.stats_queue = queue.Queue()
@@ -302,6 +301,7 @@ class UDPServer:
 
     def end_current_session(self):
         if self.current_session_id:
+            self.running = False  # Force stop the send_data loop
             stats = {
                 'total_packets': self.total_packets_sent,
                 'success_rate': len([p for p in self.monitor.current_stats['packets'] if p['status'] == 'acked']) / self.total_packets_sent if self.total_packets_sent > 0 else 0,
@@ -321,37 +321,6 @@ class UDPServer:
         @app.route('/api/stats')
         def get_stats():
             return self.monitor.get_current_stats()
-
-        @app.route('/api/transmission/start', methods=['POST'])
-        def start_transmission():
-            data = request.get_json()
-            run_times = data.get('runTimes', 5) if data else 5
-            if not self.current_transmission or not self.current_transmission.is_alive():
-                self.current_transmission = threading.Thread(
-                    target=self.send_data,
-                    args=(run_times,),
-                    daemon=True
-                )
-                self.current_transmission.start()
-                return jsonify({'status': 'started', 'runTimes': run_times})
-            return jsonify({'status': 'already_running'})
-
-        @app.route('/api/transmission/stop', methods=['POST'])
-        def stop_transmission():
-            self.running = False
-            return jsonify({'status': 'stopping'})
-
-        @app.route('/api/paths/stats')
-        def get_path_stats():
-            return jsonify(self.monitor.current_stats['path_stats'])
-
-        @app.route('/api/performance/metrics')
-        def get_performance_metrics():
-            return jsonify(self.monitor.current_stats['performance_metrics'])
-
-        @app.route('/api/throughput/history')
-        def get_throughput_history():
-            return jsonify(self.monitor.current_stats['throughput_history'])
         
         @app.route('/api/transmission/toggle', methods=['POST'])
         def toggle_transmission():
@@ -359,7 +328,7 @@ class UDPServer:
                 self.start_new_session()
                 self.current_transmission = threading.Thread(
                     target=self.send_data,
-                    args=(5,),
+                    args=(1,),
                     daemon=True
                 )
                 self.current_transmission.start()
@@ -374,30 +343,6 @@ class UDPServer:
 
         flask_thread = threading.Thread(target=run_flask, daemon=True)
         flask_thread.start()
-
-    def _start_api_server(self):
-        def run_api():
-            from flask import Flask, jsonify
-            app = Flask(__name__)
-
-            @app.route('/stats')
-            def get_stats():
-                return self.monitor.get_current_stats()
-
-            @app.route('/control/start', methods=['POST'])
-            def start_transmission():
-                threading.Thread(target=self.send_data, args=(5,)).start()
-                return jsonify({'status': 'started'})
-
-            @app.route('/control/stop', methods=['POST'])
-            def stop_transmission():
-                # Implement stop mechanism
-                return jsonify({'status': 'stopped'})
-
-            app.run(host='0.0.0.0', port=self.api_port)
-
-        api_thread = threading.Thread(target=run_api, daemon=True)
-        api_thread.start()
 
     def start_ack_listener(self):
         self.ack_thread = threading.Thread(target=self._ack_listener, daemon=True)
@@ -480,6 +425,8 @@ class UDPServer:
         total_packet_loss = 0
 
         for run in range(runTimes):
+            if self.running == False: # Stop the transmission
+                break
             self.last_send_time = 0
             self.total_packets_sent = 0
             self.total_retransmissions = 0
