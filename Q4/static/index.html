@@ -11,61 +11,76 @@
     <link rel="stylesheet" href="./static/styles.css">
 </head>
 <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen text-white">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Header Section -->
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
-                UDP Network Monitor
-            </h1>
-            <button id="toggleBtn" class="transmission-btn">
-                Start Transmission
+    <div class="container mx-auto px-6 py-10">
+        <!-- Enhanced Header Section -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+            <div class="flex items-center space-x-4">
+                <div class="w-2 h-12 bg-gradient-to-b from-blue-400 to-teal-400 rounded-full"></div>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
+                    UDP Network Monitor
+                </h1>
+            </div>
+            <button id="toggleBtn" class="transmission-btn group relative">
+                <span class="flex items-center">
+                    <span class="mr-2 h-2 w-2 rounded-full bg-current transition-all group-hover:scale-125"></span>
+                    Start Transmission
+                </span>
             </button>
-        </div>
+        </header>
 
-        <!-- Main Grid Layout -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- Status Card -->
-            <div class="dashboard-card">
-                <h2 class="card-title">Transmission Status</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="stat-box">
-                        <p class="stat-label">Status</p>
-                        <p id="statusText" class="stat-value">Idle</p>
+        <!-- Status Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+            <!-- Enhanced Status Card -->
+            <div class="dashboard-card transform transition-all hover:scale-[1.02]">
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">🔄</span>
+                    Transmission Status
+                </h2>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400 transition-colors">Status</p>
+                        <p id="statusText" class="stat-value flex items-center">
+                            <span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-2"></span>
+                            Idle
+                        </p>
                     </div>
-                    <div class="stat-box">
-                        <p class="stat-label">Total Packets</p>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400 transition-colors">Total Packets</p>
                         <p id="totalPackets" class="stat-value">0</p>
                     </div>
-                    <div class="stat-box">
-                        <p class="stat-label">Success Rate</p>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400 transition-colors">Success Rate</p>
                         <p id="successRate" class="stat-value">0%</p>
                     </div>
-                    <div class="stat-box">
-                        <p class="stat-label">Current Throughput</p>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400 transition-colors">Current Throughput</p>
                         <p id="throughput" class="stat-value">0 KB/s</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Path Statistics -->
+            <!-- Enhanced Path Statistics -->
             <div class="dashboard-card">
-                <h2 class="card-title">Path Statistics</h2>
-                <div class="space-y-6">
-                    <div class="path-stat">
-                        <div class="flex justify-between mb-2">
-                            <h3 class="text-sm text-blue-400">Path 1</h3>
-                            <p id="path1Stats" class="text-sm">0/0 packets (0%)</p>
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">📊</span>
+                    Path Statistics
+                </h2>
+                <div class="space-y-8">
+                    <div class="path-stat group">
+                        <div class="flex justify-between mb-3">
+                            <h3 class="text-sm font-medium text-blue-400 group-hover:text-blue-300">Path 1</h3>
+                            <p id="path1Stats" class="text-sm font-medium">0/0 packets (0%)</p>
                         </div>
-                        <div class="progress-bar">
+                        <div class="progress-bar group-hover:bg-opacity-75 transition-all">
                             <div id="path1Progress" class="progress-fill bg-blue-500"></div>
                         </div>
                     </div>
-                    <div class="path-stat">
-                        <div class="flex justify-between mb-2">
-                            <h3 class="text-sm text-teal-400">Path 2</h3>
-                            <p id="path2Stats" class="text-sm">0/0 packets (0%)</p>
+                    <div class="path-stat group">
+                        <div class="flex justify-between mb-3">
+                            <h3 class="text-sm font-medium text-teal-400 group-hover:text-teal-300">Path 2</h3>
+                            <p id="path2Stats" class="text-sm font-medium">0/0 packets (0%)</p>
                         </div>
-                        <div class="progress-bar">
+                        <div class="progress-bar group-hover:bg-opacity-75 transition-all">
                             <div id="path2Progress" class="progress-fill bg-teal-500"></div>
                         </div>
                     </div>
@@ -73,29 +88,45 @@
             </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Enhanced Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
             <div class="dashboard-card">
-                <h2 class="card-title">Throughput Over Time</h2>
-                <canvas id="throughputChart"></canvas>
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">📈</span>
+                    Throughput Over Time
+                </h2>
+                <div class="relative aspect-video">
+                    <canvas id="throughputChart"></canvas>
+                </div>
             </div>
             <div class="dashboard-card">
-                <h2 class="card-title">Packet Statistics</h2>
-                <canvas id="packetChart"></canvas>
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">📊</span>
+                    Packet Statistics
+                </h2>
+                <div class="relative aspect-video">
+                    <canvas id="packetChart"></canvas>
+                </div>
             </div>
         </div>
 
-        <!-- Packet Timeline Section -->
+        <!-- Enhanced Timeline Section -->
+        <div class="dashboard-card mb-10">
+            <h2 class="card-title flex items-center">
+                <span class="mr-3">⏱️</span>
+                Packet Timeline
+            </h2>
+            <div id="packetTimeline" class="packet-timeline h-32 overflow-y-auto scrollbar-thin">
+                <!-- Dynamic packets here -->
+            </div>
+        </div>
+
+        <!-- Enhanced Session History -->
         <div class="dashboard-card">
-            <h2 class="card-title">Packet Timeline</h2>
-            <div id="packetTimeline" class="packet-timeline">
-                <!-- Packets will be dynamically added here -->
-            </div>
-        </div>
-
-        <!-- Session History Section -->
-        <div class="dashboard-card mt-8">
-            <h2 class="card-title">Session History</h2>
+            <h2 class="card-title flex items-center">
+                <span class="mr-3">📜</span>
+                Session History
+            </h2>
             <div class="overflow-x-auto">
                 <table class="session-table">
                     <thead>
@@ -109,7 +140,7 @@
                         </tr>
                     </thead>
                     <tbody id="sessionHistory">
-                        <!-- Session history will be dynamically added here -->
+                        <!-- Dynamic session history here -->
                     </tbody>
                 </table>
             </div>

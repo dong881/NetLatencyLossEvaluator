@@ -1,138 +1,240 @@
-/* Custom Properties */
+/* Modern Theme CSS */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 :root {
-    --card-bg: rgba(17, 24, 39, 0.8);
-    --border-color: rgba(59, 130, 246, 0.2);
-    --hover-color: rgba(59, 130, 246, 0.1);
+  /* Colors */
+  --bg-primary: #fafbfc;
+  --bg-secondary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --accent-primary: #2563eb;
+  --accent-secondary: #3b82f6;
+  --border-light: #e5e7eb;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  
+  /* Dark Mode */
+  --dark-bg-primary: #111827;
+  --dark-bg-secondary: #1f2937;
+  --dark-text-primary: #f3f4f6;
+  --dark-text-secondary: #9ca3af;
+  --dark-border: rgba(255,255,255,0.1);
 }
 
-/* Card Styles */
+/* Base Styles */
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* Layout */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 3rem 2rem;
+  }
+}
+
+/* Card Components */
 .dashboard-card {
-    @apply bg-opacity-80 backdrop-blur-lg rounded-xl shadow-lg p-6;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    transition: all 0.3s ease;
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-light);
+  transition: all 0.2s ease;
 }
 
 .dashboard-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
 }
 
+/* Typography */
 .card-title {
-    @apply text-xl font-semibold mb-4 text-blue-400;
-}
-
-/* Stats Box Styles */
-.stat-box {
-    @apply p-4 rounded-lg;
-    background: rgba(30, 41, 59, 0.5);
-    border: 1px solid var(--border-color);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .stat-label {
-    @apply text-sm text-gray-400 mb-1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
 }
 
 .stat-value {
-    @apply text-lg font-medium text-white;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-/* Progress Bar Styles */
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+/* Progress Bars */
 .progress-bar {
-    @apply w-full h-2.5 rounded-full bg-gray-700;
-    overflow: hidden;
+  height: 0.5rem;
+  background: var(--bg-secondary);
+  border-radius: 9999px;
+  overflow: hidden;
 }
 
 .progress-fill {
-    @apply h-full rounded-full;
-    transition: width 0.3s ease;
+  height: 100%;
+  background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+  transition: width 0.3s ease;
 }
 
-/* Transmission Button Styles */
+/* Buttons */
 .transmission-btn {
-    @apply px-6 py-2 rounded-lg font-medium transition-all duration-300;
-    background: linear-gradient(45deg, #3B82F6, #14B8A6);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  transition: all 0.2s ease;
 }
 
 .transmission-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
-.transmission-btn.active {
-    background: linear-gradient(45deg, #EF4444, #F59E0B);
-}
-
-/* Packet Timeline Styles */
-.packet-timeline {
-    @apply mt-4 overflow-x-auto;
-    min-height: 150px;
-    white-space: nowrap;
-}
-
-.packet {
-    @apply inline-block px-2 py-1 rounded m-1 text-xs;
-    animation: fadeIn 0.3s ease;
-}
-
-.packet-path1 {
-    @apply bg-blue-500 text-white;
-}
-
-.packet-path2 {
-    @apply bg-teal-500 text-white;
-}
-
-.packet-ack {
-    @apply bg-green-500 text-white;
-}
-
-/* Session Table Styles */
+/* Table Styles */
 .session-table {
-    @apply w-full text-sm;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .session-table th {
-    @apply px-4 py-2 text-left text-gray-400;
-    border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .session-table td {
-    @apply px-4 py-2;
-    border-bottom: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.session-table tr:hover {
-    background: var(--hover-color);
+/* Timeline */
+.packet-timeline {
+  background: var(--bg-secondary);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.packet {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem;
+  border-radius: 0.5rem;
+  background: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--card-shadow);
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--dark-bg-primary);
+    color: var(--dark-text-primary);
+  }
+  
+  .dashboard-card {
+    background: var(--dark-bg-secondary);
+    border-color: var(--dark-border);
+  }
+  
+  .card-title {
+    color: var(--dark-text-primary);
+  }
+  
+  .stat-label {
+    color: var(--dark-text-secondary);
+  }
+  
+  .stat-value {
+    color: var(--dark-text-primary);
+  }
+  
+  .progress-bar {
+    background: rgba(255,255,255,0.1);
+  }
+  
+  .session-table th,
+  .session-table td {
+    border-color: var(--dark-border);
+  }
+  
+  .packet {
+    background: var(--dark-bg-secondary);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-card {
+    padding: 1rem;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .transmission-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+  
+  .session-table {
+    font-size: 0.875rem;
+  }
+  
+  .session-table th,
+  .session-table td {
+    padding: 0.5rem 0.75rem;
+  }
 }
 
 /* Animations */
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    .container {
-        @apply px-2;
-    }
-    
-    .dashboard-card {
-        @apply p-4;
-    }
-
-    .stat-box {
-        @apply p-2;
-    }
-
-    .transmission-btn {
-        @apply px-4 py-2 text-sm;
-    }
+.fade-in {
+  animation: fadeIn 0.3s ease forwards;
 }
