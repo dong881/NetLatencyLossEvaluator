@@ -7,242 +7,573 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        #packetChart, #throughputChart {
+            max-height: 500px; /* 設置一個合適的最大高度 */
+            height: 100%; /* 確保高度不會超過父容器 */
+        }
+        .timeline-item {
+            animation: fadeInScale 0.3s ease-out;
+        }
+        
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .toggle-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        
+        .toggle-btn.started {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+        }
+        
+        .toggle-btn.stopped {
+            background: linear-gradient(45deg, #10b981, #059669);
+        }
+        
+        .toggle-btn.loading {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+            }
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen text-white">
     <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">UDP Network Monitor</h1>
-            <div class="space-x-4">
-                <button id="startBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                    Start Transmission
+        <!-- Header Section -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
+                UDP Network Monitor
+            </h1>
+            <div class="flex gap-4 items-center">
+                <select id="sessionSelect" class="bg-gray-700 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value="current">Current Session</option>
+                </select>
+                <button id="exportBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-all duration-300 hidden">
+                    Export Data
                 </button>
-                <button id="stopBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-                    Stop Transmission
+                <button id="toggleBtn" class="toggle-btn stopped px-6 py-2 rounded-full font-semibold text-white">
+                    <span>Start Transmission</span>
                 </button>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Status Card -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Transmission Status</h2>
+            <div class="stat-card bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 text-blue-400">Transmission Status</h2>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-sm text-gray-500">Status</p>
-                        <p id="statusText" class="text-lg font-medium">Idle</p>
+                    <div class="bg-gray-700 p-4 rounded-lg transition-all duration-300 hover:bg-gray-600">
+                        <p class="text-sm text-gray-400">Status</p>
+                        <p id="statusText" class="text-lg font-medium text-white">Idle</p>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Total Packets</p>
-                        <p id="totalPackets" class="text-lg font-medium">0</p>
+                    <div class="bg-gray-700 p-4 rounded-lg transition-all duration-300 hover:bg-gray-600">
+                        <p class="text-sm text-gray-400">Total Packets</p>
+                        <p id="totalPackets" class="text-lg font-medium text-white">0</p>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Success Rate</p>
-                        <p id="successRate" class="text-lg font-medium">0%</p>
+                    <div class="bg-gray-700 p-4 rounded-lg transition-all duration-300 hover:bg-gray-600">
+                        <p class="text-sm text-gray-400">Success Rate</p>
+                        <p id="successRate" class="text-lg font-medium text-white">0%</p>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Current Throughput</p>
-                        <p id="throughput" class="text-lg font-medium">0 KB/s</p>
+                    <div class="bg-gray-700 p-4 rounded-lg transition-all duration-300 hover:bg-gray-600">
+                        <p class="text-sm text-gray-400">Current Throughput</p>
+                        <p id="throughput" class="text-lg font-medium text-white">0 KB/s</p>
                     </div>
                 </div>
             </div>
 
             <!-- Path Statistics -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Path Statistics</h2>
-                <div class="space-y-4">
+            <div class="stat-card bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 text-teal-400">Path Statistics</h2>
+                <div class="space-y-6">
                     <div>
-                        <h3 class="text-sm text-gray-500">Path 1</h3>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div id="path1Progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                        <div class="flex justify-between mb-2">
+                            <h3 class="text-sm text-gray-400">Path 1</h3>
+                            <p id="path1Stats" class="text-sm text-gray-400">0/0 packets (0%)</p>
                         </div>
-                        <p id="path1Stats" class="text-sm mt-1">0/0 packets (0%)</p>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div id="path1Progress" class="bg-gradient-to-r from-blue-500 to-blue-400 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
                     </div>
                     <div>
-                        <h3 class="text-sm text-gray-500">Path 2</h3>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div id="path2Progress" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                        <div class="flex justify-between mb-2">
+                            <h3 class="text-sm text-gray-400">Path 2</h3>
+                            <p id="path2Stats" class="text-sm text-gray-400">0/0 packets (0%)</p>
                         </div>
-                        <p id="path2Stats" class="text-sm mt-1">0/0 packets (0%)</p>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div id="path2Progress" class="bg-gradient-to-r from-teal-500 to-teal-400 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Charts -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Throughput Over Time</h2>
-                <canvas id="throughputChart"></canvas>
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 text-blue-400">Throughput Over Time</h2>
+                <canvas id="throughputChart" height="200"></canvas>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Packet Statistics</h2>
-                <canvas id="packetChart"></canvas>
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 text-teal-400">Packet Statistics</h2>
+                <canvas id="packetChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Packet Timeline -->
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-purple-400">Packet Timeline</h2>
+            <div id="packetTimeline" class="overflow-x-auto whitespace-nowrap py-4" style="min-height: 150px">
+                <!-- Timeline items will be inserted here -->
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize charts
-        const throughputCtx = document.getElementById('throughputChart').getContext('2d');
-        const packetCtx = document.getElementById('packetChart').getContext('2d');
-
-        const throughputChart = new Chart(throughputCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Throughput (KB/s)',
-                    data: [],
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        const packetChart = new Chart(packetCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Sent', 'Acknowledged'],
-                datasets: [{
-                    label: 'Packets',
-                    data: [0, 0],
-                    backgroundColor: [
-                        'rgba(54, 162, 235, 0.5)',
-                        'rgba(75, 192, 192, 0.5)'
-                    ],
-                    borderColor: [
-                        'rgb(54, 162, 235)',
-                        'rgb(75, 192, 192)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // UI update functions
-        function updateUI(stats) {
-            // Update status
-            document.getElementById('statusText').textContent = stats.transmission_status;
-            document.getElementById('totalPackets').textContent = stats.packets.length;
-            
-            // Calculate success rate
-            const successfulPackets = stats.packets.filter(p => p.status === 'acked').length;
-            const successRate = stats.packets.length > 0 
-                ? ((successfulPackets / stats.packets.length) * 100).toFixed(1)
-                : 0;
-                document.getElementById('successRate').textContent = `${successRate}%`;
-            
-                // Update throughput
-                const currentThroughput = stats.performance_metrics.throughput;
-                document.getElementById('throughput').textContent = 
-                    `${(currentThroughput / 1024).toFixed(2)} KB/s`;
+        let throughputChart = null;
+        let packetChart = null;
+        const toggleBtn = document.getElementById('toggleBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const sessionSelect = document.getElementById('sessionSelect');
+        let isTransmitting = false;
+        let currentSessionId = null;
+        let pollTimeout = null;
+        let lastUpdateTime = 0;
+        const UPDATE_INTERVAL = 1000; // 更新間隔（毫秒）
+        const MAX_DATA_POINTS = 20; // 最大數據點數量
+        const MAX_TIMELINE_ITEMS = 50; // 最大時間軸項目數量
     
-                // Update path statistics
-                const path1 = stats.path_stats.path1;
-                const path2 = stats.path_stats.path2;
-                
-                // Path 1 progress
-                const path1Success = path1.packets > 0 ? (path1.success / path1.packets * 100) : 0;
-                document.getElementById('path1Progress').style.width = `${path1Success}%`;
-                document.getElementById('path1Stats').textContent = 
-                    `${path1.success}/${path1.packets} packets (${path1Success.toFixed(1)}%)`;
-                
-                // Path 2 progress
-                const path2Success = path2.packets > 0 ? (path2.success / path2.packets * 100) : 0;
-                document.getElementById('path2Progress').style.width = `${path2Success}%`;
-                document.getElementById('path2Stats').textContent = 
-                    `${path2.success}/${path2.packets} packets (${path2Success.toFixed(1)}%)`;
+        let currentStats = {
+            startTime: null,
+            packets: [],
+            processedSequences: new Set(), // 使用 Set 來提高性能
+            throughputHistory: []
+        };
     
-                // Update throughput chart
-                if (stats.throughput_history.length > 0) {
-                    throughputChart.data.labels = stats.throughput_history.map(
-                        th => moment(th.timestamp).format('HH:mm:ss')
-                    );
-                    throughputChart.data.datasets[0].data = stats.throughput_history.map(
-                        th => (th.value / 1024).toFixed(2)
-                    );
-                    throughputChart.update();
-                }
+        function initializeCharts() {
+            const throughputCtx = document.getElementById('throughputChart').getContext('2d');
+            const packetCtx = document.getElementById('packetChart').getContext('2d');
     
-                // Update packet statistics chart
-                packetChart.data.datasets[0].data = [
-                    stats.packets.length,
-                    stats.packets.filter(p => p.status === 'acked').length
-                ];
-                packetChart.update();
-            }
-    
-            // API functions
-            async function fetchStats() {
-                try {
-                    const response = await fetch('/api/stats');
-                    const stats = await response.json();
-                    updateUI(stats);
-                } catch (error) {
-                    console.error('Error fetching stats:', error);
-                }
-            }
-    
-            async function startTransmission() {
-                try {
-                    const response = await fetch('/api/transmission/start', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
+            // 配置吞吐量圖表
+            throughputChart = new Chart(throughputCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Throughput (KB/s)',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        tension: 0.4,
+                        pointRadius: 2, // 減少點的大小
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // 禁用動畫以提高性能
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                maxTicksLimit: 5 // 限制Y軸刻度數量
+                            }
                         },
-                        body: JSON.stringify({ runTimes: 5 })
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 10 // 限制X軸刻度數量
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // 隱藏圖例以減少渲染
+                        }
+                    }
+                }
+            });
+    
+            // 配置數據包統計圖表
+            packetChart = new Chart(packetCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Successful', 'Failed'],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: ['#10b981', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 500 // 減少動畫時間
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+    
+        function updateCharts(stats) {
+            // 更新吞吐量圖表
+            if (throughputChart && stats.throughputHistory.length > 0) {
+                const recentHistory = stats.throughputHistory.slice(-MAX_DATA_POINTS);
+                const labels = recentHistory.map(entry => 
+                    moment(entry.timestamp).format('HH:mm:ss')
+                );
+                const data = recentHistory.map(entry => entry.value);
+    
+                throughputChart.data.labels = labels;
+                throughputChart.data.datasets[0].data = data;
+                throughputChart.update('none');
+            }
+    
+            // 更新數據包統計圖表
+            if (packetChart) {
+                const successful = stats.processedSequences.size;
+                const failed = stats.packets.length - successful;
+    
+                packetChart.data.datasets[0].data = [successful, failed];
+                packetChart.update('none');
+            }
+        }
+    
+        async function updateUI(stats) {
+            // 首先檢查 stats 和 packets 是否有效
+            if (!stats || !Array.isArray(stats.packets)) {
+                console.error("Stats is undefined or packets is not an array");
+                return;
+            }
+
+            const now = Date.now();
+            if (now - lastUpdateTime < UPDATE_INTERVAL) {
+                return;
+            }
+            lastUpdateTime = now;
+
+            const elapsedSeconds = Math.max(1, (now - new Date(stats.start_time).getTime()) / 1000);
+            
+            // 安全地計算總數據大小
+            const totalDataSize = stats.packets.reduce((acc, packet) => {
+                if (!packet || typeof packet.size === 'undefined') {
+                    return acc;
+                }
+                return acc + packet.size;
+            }, 0);
+            
+            const currentThroughput = (totalDataSize / elapsedSeconds).toFixed(2);
+            document.getElementById('throughput').textContent = `${currentThroughput} KB/s`;
+
+    
+            document.getElementById('totalPackets').textContent = stats.packets.length;
+    
+            const successRate = stats.packets.length > 0 
+                ? ((stats.processedSequences.size / stats.packets.length) * 100).toFixed(2)
+                : 0;
+            document.getElementById('successRate').textContent = `${successRate}%`;
+    
+            // 更新路徑統計
+            const path1Packets = stats.packets.filter(p => p.path === 'path1');
+            const path1SuccessRate = path1Packets.length > 0 
+                ? ((path1Packets.filter(p => stats.processedSequences.has(p.sequence)).length / path1Packets.length) * 100).toFixed(2) 
+                : 0;
+    
+            const path2Packets = stats.packets.filter(p => p.path === 'path2');
+            const path2SuccessRate = path2Packets.length > 0 
+                ? ((path2Packets.filter(p => stats.processedSequences.has(p.sequence)).length / path2Packets.length) * 100).toFixed(2)
+                : 0;
+    
+            // 更新路徑統計顯示
+            document.getElementById('path1Stats').textContent = `${path1Packets.length} packets (${path1SuccessRate}%)`;
+            document.getElementById('path1Progress').style.width = `${path1SuccessRate}%`;
+    
+            document.getElementById('path2Stats').textContent = `${path2Packets.length} packets (${path2SuccessRate}%)`;
+            document.getElementById('path2Progress').style.width = `${path2SuccessRate}%`;
+    
+            // 更新時間軸
+            const timeline = document.getElementById('packetTimeline');
+            const newPackets = stats.packets.filter(packet => 
+                !currentStats.processedSequences.has(packet.sequence)
+            );
+    
+            // 批量處理新的數據包
+            if (newPackets.length > 0) {
+                const fragment = document.createDocumentFragment();
+                newPackets.forEach(packet => {
+                    const item = createTimelineItem(packet);
+                    fragment.appendChild(item);
+                    currentStats.processedSequences.add(packet.sequence);
+                });
+                
+                // 控制時間軸項目數量
+                while (timeline.children.length > MAX_TIMELINE_ITEMS - fragment.childElementCount) {
+                    timeline.removeChild(timeline.firstChild);
+                }
+    
+                // 一次性添加所有新項目
+                timeline.appendChild(fragment);
+                
+            }
+    
+            // 更新圖表數據
+            if (stats.throughputHistory && stats.throughputHistory.length > currentStats.throughputHistory.length) {
+                currentStats.throughputHistory = stats.throughputHistory.slice(-MAX_DATA_POINTS);
+                updateCharts(currentStats);
+            }
+    
+            currentStats.packets = stats.packets;
+        }
+    
+        function createTimelineItem(packet) {
+            const item = document.createElement('div');
+            item.className = `timeline-item inline-block mx-1 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer`;
+            
+            if (packet.type === 'sent') {
+                item.className += packet.path === 'path1' ? 
+                    ' bg-blue-500 text-white' : 
+                    ' bg-teal-500 text-white';
+                item.textContent = `#${packet.sequence}`;
+            } else {
+                item.className += ' bg-purple-500 text-white';
+                item.textContent = `ACK #${packet.sequence}`;
+            }
+    
+            item.title = new Date(packet.timestamp).toLocaleString();
+            return item;
+        }
+    
+        function resetStats() {
+            if (pollTimeout) {
+                clearTimeout(pollTimeout);
+                pollTimeout = null;
+            }
+    
+            // 重置所有統計數據
+            currentStats = {
+                startTime: Date.now(),
+                packets: [],
+                processedSequences: new Set(),
+                throughputHistory: []
+            };
+            
+            // 清理時間軸
+            const timeline = document.getElementById('packetTimeline');
+            timeline.innerHTML = '';
+            
+            // 重置圖表
+            if (throughputChart) {
+                throughputChart.data.labels = [];
+                throughputChart.data.datasets[0].data = [];
+                throughputChart.update('none');
+            }
+            
+            if (packetChart) {
+                packetChart.data.datasets[0].data = [0, 0];
+                packetChart.update('none');
+            }
+            
+            // 重置 UI 元素
+            document.getElementById('totalPackets').textContent = '0';
+            document.getElementById('successRate').textContent = '0%';
+            document.getElementById('throughput').textContent = '0 KB/s';
+            document.getElementById('path1Stats').textContent = '0/0 packets (0%)';
+            document.getElementById('path2Stats').textContent = '0/0 packets (0%)';
+            document.getElementById('path1Progress').style.width = '0%';
+            document.getElementById('path2Progress').style.width = '0%';
+            
+            lastUpdateTime = 0;
+        }
+    
+
+    
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const sessions = await response.json();
+                
+                // 清除現有選項（保留 current）
+                sessionSelect.innerHTML = '<option value="current">Current Session</option>';
+                
+                // 添加新選項
+                sessions.forEach(session => {
+                    const option = document.createElement('option');
+                    option.value = session.id;
+                    option.textContent = `Session ${session.id} - ${new Date(session.start_time).toLocaleString()}`;
+                    sessionSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+        }
+    
+        async function loadSessionData(sessionId) {
+            try {
+                const response = await fetch(`/api/sessions/${sessionId}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                resetStats();
+                updateUI(data);
+                exportBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading session data:', error);
+                resetStats();
+            }
+        }
+    
+        // 優化的輪詢函數
+        async function pollForUpdates() {
+            if (!isTransmitting) return;
+    
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+    
+                if (!stats || !Array.isArray(stats.packets)) {
+                    console.error("Stats is undefined or packets is not an array");
+                    return;
+                }
+    
+                updateUI(stats);
+    
+                pollTimeout = setTimeout(pollForUpdates, UPDATE_INTERVAL);
+            } catch (error) {
+                console.error("Error polling for updates:", error);
+                pollTimeout = setTimeout(pollForUpdates, UPDATE_INTERVAL);
+            }
+        }
+    
+        async function toggleTransmission() {
+            try {
+                if (!isTransmitting) {
+                    updateToggleButton('loading');
+                    const response = await fetch('/api/transmission/toggle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
                     });
+                    
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     const result = await response.json();
+                    
                     if (result.status === 'started') {
-                        document.getElementById('startBtn').disabled = true;
-                        document.getElementById('stopBtn').disabled = false;
+                        isTransmitting = true;
+                        currentSessionId = result.session_id;
+                        resetStats();
+                        updateToggleButton('started');
+                        requestAnimationFrame(pollForUpdates);
+                    } else {
+                        updateToggleButton('stopped');
+                        console.error('Unexpected response status:', result.status);
                     }
-                } catch (error) {
-                    console.error('Error starting transmission:', error);
-                }
-            }
-    
-            async function stopTransmission() {
-                try {
-                    const response = await fetch('/api/transmission/stop', {
-                        method: 'POST'
+                } else {
+                    updateToggleButton('loading');
+                    const response = await fetch('/api/transmission/toggle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
                     });
+                    
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     const result = await response.json();
-                    if (result.status === 'stopping') {
-                        document.getElementById('startBtn').disabled = false;
-                        document.getElementById('stopBtn').disabled = true;
+                    
+                    if (result.status === 'stopped' || result.status === 'stopping') {
+                        isTransmitting = false;
+                        await loadSessions();
+                        updateToggleButton('stopped');
                     }
-                } catch (error) {
-                    console.error('Error stopping transmission:', error);
                 }
+            } catch (error) {
+                console.error('Error toggling transmission:', error);
+                isTransmitting = false;
+                updateToggleButton('stopped');
             }
+        }
     
-            // Event listeners
-            document.getElementById('startBtn').addEventListener('click', startTransmission);
-            document.getElementById('stopBtn').addEventListener('click', stopTransmission);
-            document.getElementById('stopBtn').disabled = true;
+        function updateToggleButton(status) {
+            toggleBtn.className = `toggle-btn ${status} px-6 py-2 rounded-full font-semibold text-white`;
+            
+            toggleBtn.querySelector('span').textContent = {
+                'stopped': 'Start Transmission',
+                'started': 'Stop Transmission',
+                'loading': 'Processing...'
+            }[status];
     
-            // Start periodic updates
-            setInterval(fetchStats, 1000);
+            document.getElementById('statusText').textContent = {
+                'stopped': 'Idle',
+                'started': 'Active',
+                'loading': 'Processing'
+            }[status];
+        }
     
-            // Initial fetch
-            fetchStats();
+        // Event Listeners
+        toggleBtn.addEventListener('click', toggleTransmission);
+        
+        sessionSelect.addEventListener('change', (e) => {
+            const selectedSession = e.target.value;
+            if (selectedSession !== 'current') {
+                loadSessionData(selectedSession);
+            } else {
+                resetStats();
+                exportBtn.classList.add('hidden');
+            }
+        });
+    
+        exportBtn.addEventListener('click', async () => {
+            const selectedSession = sessionSelect.value;
+            if (selectedSession !== 'current') {
+                window.location.href = `/api/sessions/${selectedSession}/export`;
+            }
+        });
+    
+        // Initialize
+        initializeCharts();
+        loadSessions();
+    
+        // Cleanup function
+        window.addEventListener('beforeunload', () => {
+            if (pollTimeout) {
+                clearTimeout(pollTimeout);
+            }
+        });
     </script>
 </body>
 </html>

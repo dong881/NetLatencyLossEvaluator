@@ -6,9 +6,12 @@ from collections import defaultdict
 import queue
 import json
 from datetime import datetime
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory, request, send_file
 from flask_cors import CORS
 import os
+import sqlite3
+import csv
+from pathlib import Path
 
 def compress_with_lzma(data: str) -> bytes:
     return lzma.compress(data.encode("utf-8"))
@@ -16,17 +19,114 @@ def compress_with_lzma(data: str) -> bytes:
 def generate_packet_data(start: int, end: int, delimiter: str = "|") -> str:
     return delimiter.join(f"Packet {i}" for i in range(start, end + 1))
 
+class DatabaseManager:
+    def __init__(self, db_file="network_monitor.db"):
+        self.db_file = db_file
+        self.init_db()
 
+    def init_db(self):
+        with sqlite3.connect(self.db_file) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    start_time TIMESTAMP,
+                    end_time TIMESTAMP,
+                    total_packets INTEGER,
+                    success_rate REAL,
+                    avg_throughput REAL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS packet_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER,
+                    sequence_number INTEGER,
+                    path TEXT,
+                    send_time TIMESTAMP,
+                    ack_time TIMESTAMP,
+                    status TEXT,
+                    FOREIGN KEY (session_id) REFERENCES sessions(id)
+                )
+            """)
+
+    def dict_factory(self, cursor, row):
+        """Convert database row objects to a dictionary"""
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
+    
+    def export_session_data(self, session_id):
+        export_dir = Path('exports')
+        export_dir.mkdir(exist_ok=True)
+        
+        filename = f'session_{session_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        export_path = export_dir / filename
+        
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.execute("""
+                SELECT pl.*, s.start_time as session_start, s.end_time as session_end
+                FROM packet_logs pl
+                JOIN sessions s ON pl.session_id = s.id
+                WHERE s.id = ?
+                ORDER BY pl.sequence_number
+            """, (session_id,))
+            
+            with open(export_path, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow([description[0] for description in cursor.description])
+                writer.writerows(cursor)
+                
+        return str(export_path)
 
 class UDPServerMonitor:
     def __init__(self):
+        self.db = DatabaseManager()
+        self.current_session_id = None
         self.stats_queue = queue.Queue()
+        self.stats_lock = threading.Lock()
+        self.sequence_timeline = []
+        self.current_stats = {}
+        self.reset_stats()
+        self._start_stats_processor()  # 在初始化時啟動統計處理器
+
+    def get_session_list(self):
+        with sqlite3.connect(self.db.db_file) as conn:
+            conn.row_factory = self.db.dict_factory
+            cursor = conn.execute("""
+                SELECT id, start_time, end_time, total_packets, success_rate, avg_throughput 
+                FROM sessions 
+                ORDER BY start_time DESC
+            """)
+            return cursor.fetchall()
+
+    def get_session_data(self, session_id):
+        with sqlite3.connect(self.db.db_file) as conn:
+            conn.row_factory = self.db.dict_factory
+            cursor = conn.execute("""
+                SELECT * FROM packet_logs 
+                WHERE session_id = ? 
+                ORDER BY sequence_number
+            """, (session_id,))
+            return cursor.fetchall()
+
+    def record_event(self, event_type, **kwargs):
+        """
+        Record an event by putting it in the stats queue for processing
+        """
+        event_data = {
+            'type': event_type,
+            **kwargs
+        }
+        self.stats_queue.put(event_data)
+
+    def reset_stats(self):
         self.current_stats = {
+            'session_id': self.current_session_id,
             'start_time': None,
             'packets': [],
-            'throughput_history': [],
+            'current_throughput': 0,
             'total_data_sent': 0,
-            'compression_stats': None,
             'active_transmission': False,
             'last_update': None,
             'error_count': 0,
@@ -37,13 +137,60 @@ class UDPServerMonitor:
             'performance_metrics': {
                 'avg_rtt': 0,
                 'packet_loss_rate': 0,
-                'throughput': 0,
-                'compression_ratio': 0
+                'throughput': 0
             },
-            'historical_data': [],
-            'transmission_status': 'idle'
+            'transmission_status': 'idle',
+            'sequence_timeline': [],
+            'throughput_history': []  # 初始化 throughput_history
         }
-        self._start_stats_processor()
+
+    def start_new_session(self):
+        with sqlite3.connect(self.db.db_file) as conn:
+            cursor = conn.execute(
+                "INSERT INTO sessions (start_time) VALUES (?)",
+                (datetime.now(),)
+            )
+            self.current_session_id = cursor.lastrowid
+            self.reset_stats()
+            self.current_stats['session_id'] = self.current_session_id
+            return self.current_session_id
+
+    def end_session(self):
+        if not self.current_session_id:
+            return
+            
+        success_rate = self._calculate_success_rate()
+        avg_throughput = self._calculate_avg_throughput()
+        
+        with sqlite3.connect(self.db.db_file) as conn:
+            conn.execute("""
+                UPDATE sessions 
+                SET end_time = ?, total_packets = ?, success_rate = ?, avg_throughput = ?
+                WHERE id = ?
+            """, (
+                datetime.now(),
+                len(self.current_stats['packets']),
+                success_rate,
+                avg_throughput,
+                self.current_session_id
+            ))
+            
+        return self.db.export_session_data(self.current_session_id)
+
+    def _calculate_success_rate(self):
+        total = len(self.current_stats['packets'])
+        if total == 0:
+            return 0
+        success = len([p for p in self.current_stats['packets'] if p['status'] == 'acked'])
+        return (success / total) * 100
+
+    def _calculate_avg_throughput(self):
+        if not self.current_stats['start_time']:
+            return 0
+        duration = (datetime.now() - datetime.fromisoformat(self.current_stats['start_time'])).total_seconds()
+        if duration == 0:
+            return 0
+        return self.current_stats['total_data_sent'] / duration
 
     def _start_stats_processor(self):
         def process_stats():
@@ -61,6 +208,7 @@ class UDPServerMonitor:
     def _update_stats(self, stat):
         stat_type = stat.get('type')
         current_time = datetime.now()
+        print(f"Processing stat: {stat}")
         
         if stat_type == 'packet_sent':
             self.current_stats['packets'].append({
@@ -73,6 +221,7 @@ class UDPServerMonitor:
             path = 'path1' if stat['path'] == 'path1' else 'path2'
             self.current_stats['path_stats'][path]['packets'] += 1
             self.current_stats['total_data_sent'] += stat['size']
+            self.current_stats['transmission_status'] = 'active'
             
         elif stat_type == 'packet_acked':
             for packet in self.current_stats['packets']:
@@ -84,7 +233,8 @@ class UDPServerMonitor:
                     break
                     
         elif stat_type == 'transmission_start':
-            self.current_stats['start_time'] = stat['timestamp']
+            if not self.current_stats['start_time']:
+                self.current_stats['start_time'] = stat['timestamp']
             self.current_stats['transmission_status'] = 'active'
             
         elif stat_type == 'transmission_end':
@@ -95,30 +245,53 @@ class UDPServerMonitor:
                     'timestamp': current_time.isoformat(),
                     'value': throughput
                 })
+                self.current_stats['current_throughput'] = throughput
                 
-        elif stat_type == 'compression_stats':
-            self.current_stats['compression_stats'] = {
-                'original_size': stat['original_size'],
-                'compressed_size': stat['compressed_size'],
-                'ratio': stat['ratio']
-            }
-            
         self.current_stats['last_update'] = current_time.isoformat()
+
+    def record_packet(self, packet_data):
+        if not self.current_session_id:
+            return
+            
+        with sqlite3.connect(self.db.db_file) as conn:
+            conn.execute("""
+                INSERT INTO packet_logs 
+                (session_id, sequence_number, path, send_time, status) 
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                self.current_session_id,
+                packet_data['sequence'],
+                packet_data['path'],
+                packet_data['timestamp'],
+                'sent'
+            ))
         
-        # Update performance metrics
-        if self.current_stats['packets']:
-            acked_packets = [p for p in self.current_stats['packets'] if p['status'] == 'acked']
-            total_packets = len(self.current_stats['packets'])
-            self.current_stats['performance_metrics'].update({
-                'packet_loss_rate': 1 - (len(acked_packets) / total_packets) if total_packets > 0 else 0,
-                'throughput': self.current_stats['total_data_sent'] / (time.time() - time.mktime(datetime.fromisoformat(self.current_stats['start_time']).timetuple())) if self.current_stats['start_time'] else 0
+        # Add to sequence timeline
+        self.current_stats['sequence_timeline'].append({
+            'sequence': packet_data['sequence'],
+            'type': 'sent',
+            'path': packet_data['path'],
+            'timestamp': packet_data['timestamp']
+        })
+
+    def update_packet_status(self, sequence_number, status, ack_time=None):
+        if not self.current_session_id:
+            return
+            
+        with sqlite3.connect(self.db.db_file) as conn:
+            conn.execute("""
+                UPDATE packet_logs 
+                SET status = ?, ack_time = ? 
+                WHERE session_id = ? AND sequence_number = ?
+            """, (status, ack_time, self.current_session_id, sequence_number))
+        
+        # Add ACK to sequence timeline
+        if status == 'acked':
+            self.current_stats['sequence_timeline'].append({
+                'sequence': sequence_number,
+                'type': 'ack',
+                'timestamp': ack_time
             })
-
-    def get_current_stats(self):
-        return json.dumps(self.current_stats)
-
-    def record_event(self, event_type, **kwargs):
-        self.stats_queue.put({'type': event_type, **kwargs})
 
 class UDPServer:
     def __init__(self, server_ip='192.168.88.21', server_port=5409):
@@ -141,7 +314,17 @@ class UDPServer:
         self.running = True
         self.current_transmission = None
         self._start_web_server()
-        
+
+    def cleanup(self):
+        try:
+            self.running = False
+            if hasattr(self, 'server_socket'):
+                self.server_socket.close()
+            if hasattr(self, 'ack_socket'):
+                self.ack_socket.close()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+
     def _start_web_server(self):
         app = Flask(__name__, static_folder='static')
         CORS(app)
@@ -152,67 +335,47 @@ class UDPServer:
 
         @app.route('/api/stats')
         def get_stats():
-            return self.monitor.get_current_stats()
+            stats = self.monitor.current_stats
+            # 確保 stats 包含 packets 屬性並且是陣列
+            if 'packets' not in stats:
+                stats['packets'] = []
+            return jsonify(stats)
 
-        @app.route('/api/transmission/start', methods=['POST'])
-        def start_transmission():
-            data = request.get_json()
-            run_times = data.get('runTimes', 5) if data else 5
-            if not self.current_transmission or not self.current_transmission.is_alive():
+        @app.route('/api/sessions')
+        def get_sessions():
+            return jsonify(self.monitor.get_session_list())
+
+        @app.route('/api/sessions/<int:session_id>')
+        def get_session_details(session_id):
+            return jsonify(self.monitor.get_session_data(session_id))
+
+        @app.route('/api/sessions/<int:session_id>/export')
+        def export_session(session_id):
+            filepath = self.monitor.db.export_session_data(session_id)
+            return send_file(filepath, as_attachment=True)
+
+        @app.route('/api/transmission/toggle', methods=['POST'])
+        def toggle_transmission():
+            if self.current_transmission and self.current_transmission.is_alive():
+                self.running = False
+                export_path = self.monitor.end_session()
+                return jsonify({'status': 'stopping', 'export_path': export_path})
+            else:
+                self.running = True
+                session_id = self.monitor.start_new_session()
                 self.current_transmission = threading.Thread(
                     target=self.send_data,
-                    args=(run_times,),
+                    args=(5,),
                     daemon=True
                 )
                 self.current_transmission.start()
-                return jsonify({'status': 'started', 'runTimes': run_times})
-            return jsonify({'status': 'already_running'})
-
-        @app.route('/api/transmission/stop', methods=['POST'])
-        def stop_transmission():
-            self.running = False
-            return jsonify({'status': 'stopping'})
-
-        @app.route('/api/paths/stats')
-        def get_path_stats():
-            return jsonify(self.monitor.current_stats['path_stats'])
-
-        @app.route('/api/performance/metrics')
-        def get_performance_metrics():
-            return jsonify(self.monitor.current_stats['performance_metrics'])
-
-        @app.route('/api/throughput/history')
-        def get_throughput_history():
-            return jsonify(self.monitor.current_stats['throughput_history'])
+                return jsonify({'status': 'started', 'session_id': session_id})
 
         def run_flask():
             app.run(host='0.0.0.0', port=8080, threaded=True)
 
         flask_thread = threading.Thread(target=run_flask, daemon=True)
         flask_thread.start()
-    def _start_api_server(self):
-        def run_api():
-            from flask import Flask, jsonify
-            app = Flask(__name__)
-
-            @app.route('/stats')
-            def get_stats():
-                return self.monitor.get_current_stats()
-
-            @app.route('/control/start', methods=['POST'])
-            def start_transmission():
-                threading.Thread(target=self.send_data, args=(5,)).start()
-                return jsonify({'status': 'started'})
-
-            @app.route('/control/stop', methods=['POST'])
-            def stop_transmission():
-                # Implement stop mechanism
-                return jsonify({'status': 'stopped'})
-
-            app.run(host='0.0.0.0', port=self.api_port)
-
-        api_thread = threading.Thread(target=run_api, daemon=True)
-        api_thread.start()
 
     def start_ack_listener(self):
         self.ack_thread = threading.Thread(target=self._ack_listener, daemon=True)
