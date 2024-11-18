@@ -19,55 +19,36 @@ def generate_packet_data(start: int, end: int, delimiter: str = "|") -> str:
 class UDPServerMonitor:
     def __init__(self):
         self.stats_queue = queue.Queue()
-        self.current_session_id = None
-        self.reset_stats()
+        self.current_stats = {
+            'compression': {
+                'original_size': 0,
+                'compressed_size': 0,
+                'ratio': 0
+            },
+            'transmission': {
+                'current_run': 0,
+                'total_runs': 0,
+                'status': 'idle'  # idle, running, completed
+            },
+            'performance': {
+                'total_rtt': 0,
+                'average_rtt': 0,
+                'total_throughput': 0,
+                'average_throughput': 0,
+                'total_packet_loss_rate': 0,
+                'average_packet_loss_rate': 0
+            },
+            'paths': {
+                'path1': {'packets': 0, 'success': 0},
+                'path2': {'packets': 0, 'success': 0}
+            },
+            'packets': [], # List of {sequence, timestamp, path}
+            
+        }
         self._start_stats_processor()
-        self.current_stats = {
-            'start_time': None,
-            'packets': [],
-            'throughput_history': [],
-            'total_data_sent': 0,
-            'compression_stats': None,
-            'active_transmission': False,
-            'last_update': None,
-            'error_count': 0,
-            'path_stats': {
-                'path1': {'packets': 0, 'success': 0},
-                'path2': {'packets': 0, 'success': 0}
-            },
-            'performance_metrics': {
-                'avg_rtt': 0,
-                'packet_loss_rate': 0,
-                'throughput': 0,
-                'compression_ratio': 0
-            },
-            'historical_data': [],
-            'transmission_status': 'idle'
-        }
 
-    # 在 UDPServerMonitor 類中增加一個方法來重置統計數據
     def reset_stats(self):
-        self.current_stats = {
-            'start_time': None,
-            'packets': [],
-            'throughput_history': [],
-            'total_data_sent': 0,
-            'compression_stats': None,
-            'active_transmission': False,
-            'last_update': None,
-            'error_count': 0,
-            'path_stats': {
-                'path1': {'packets': 0, 'success': 0},
-                'path2': {'packets': 0, 'success': 0}
-            },
-            'performance_metrics': {
-                'avg_rtt': 0,
-                'packet_loss_rate': 0,
-                'throughput': 0,
-                'compression_ratio': 0
-            },
-            'transmission_status': 'idle'
-        }
+        self.__init__()
 
     def _start_stats_processor(self):
         def process_stats():
@@ -77,72 +58,66 @@ class UDPServerMonitor:
                     self._update_stats(stat)
                 except Exception as e:
                     print(f"Error processing stats: {e}")
-                    self.current_stats['error_count'] += 1
-        
+
         thread = threading.Thread(target=process_stats, daemon=True)
         thread.start()
 
     def _update_stats(self, stat):
         stat_type = stat.get('type')
-        current_time = datetime.now()
-        
-        if stat_type == 'packet_sent':
-            self.current_stats['packets'].append({
-                'id': stat['sequence'],
-                'timestamp': stat['timestamp'],
-                'size': stat['size'],
-                'path': stat['path'],
-                'status': 'sent'
-            })
-            path = 'path1' if stat['path'] == 'path1' else 'path2'
-            self.current_stats['path_stats'][path]['packets'] += 1
-            self.current_stats['total_data_sent'] += stat['size']
-            
-        elif stat_type == 'packet_acked':
-            for packet in self.current_stats['packets']:
-                if packet['id'] == stat['sequence']:
-                    packet['status'] = 'acked'
-                    packet['ack_time'] = current_time.isoformat()
-                    path = packet['path']
-                    self.current_stats['path_stats'][path]['success'] += 1
-                    break
-                    
-        elif stat_type == 'transmission_start':
-            self.current_stats['start_time'] = stat['timestamp']
-            self.current_stats['transmission_status'] = 'active'
-            
-        elif stat_type == 'transmission_end':
-            if self.current_stats['start_time']:
-                duration = (current_time - datetime.fromisoformat(self.current_stats['start_time'])).total_seconds()
-                throughput = self.current_stats['total_data_sent'] / duration if duration > 0 else 0
-                self.current_stats['throughput_history'].append({
-                    'timestamp': current_time.isoformat(),
-                    'value': throughput
-                })
-                
-        elif stat_type == 'compression_stats':
-            self.current_stats['compression_stats'] = {
+
+        if stat_type == 'compression_info':
+            self.current_stats['compression'].update({
                 'original_size': stat['original_size'],
                 'compressed_size': stat['compressed_size'],
                 'ratio': stat['ratio']
-            }
-            
-        self.current_stats['last_update'] = current_time.isoformat()
-        
-        # Update performance metrics
-        if self.current_stats['packets']:
-            acked_packets = [p for p in self.current_stats['packets'] if p['status'] == 'acked']
-            total_packets = len(self.current_stats['packets'])
-            self.current_stats['performance_metrics'].update({
-                'packet_loss_rate': 1 - (len(acked_packets) / total_packets) if total_packets > 0 else 0,
-                'throughput': self.current_stats['total_data_sent'] / (time.time() - time.mktime(datetime.fromisoformat(self.current_stats['start_time']).timetuple())) if self.current_stats['start_time'] else 0
             })
 
-    def get_current_stats(self):
-        return json.dumps(self.current_stats)
+        elif stat_type == 'transmission_status':
+            self.current_stats['transmission'].update({
+                'current_run': stat['current_run'],
+                'total_runs': stat['total_runs'],
+                'status': stat['status']
+            })
+
+        elif stat_type == 'performance_update':
+            self.current_stats['performance'].update({
+                'total_rtt': stat['total_rtt'],
+                'average_rtt': stat['average_rtt'],
+                'total_throughput': stat['total_throughput'],
+                'average_throughput': stat['average_throughput'],
+                'total_packet_loss_rate': stat['total_packet_loss_rate'],
+                'average_packet_loss_rate': stat['average_packet_loss_rate']
+            })
+
+        elif stat_type == 'packet_sent':
+            self.current_stats['packets'].append({
+                'sequence': stat['sequence'],
+                'timestamp': stat['timestamp'],
+                'path': stat['path'],
+                'size': stat['size'],
+                'type': 'sent',
+                'status': 'sent'
+            })
+            self.current_stats['paths'][stat['path']]['packets'] += 1
+
+        elif stat_type == 'packet_acked':
+            self.current_stats['packets'].append({
+                'sequence': stat['sequence'],
+                'timestamp': stat['timestamp'],
+                'type': 'acked',
+                'status': 'sent'
+            })
+            for packet in self.current_stats['packets']:
+                if packet['status'] == 'sent' and packet['sequence'] == stat['sequence']:
+                    packet['status'] = 'acked'
+                    self.current_stats['paths'][packet['path']]['success'] += 1
+                    break
 
     def record_event(self, event_type, **kwargs):
         self.stats_queue.put({'type': event_type, **kwargs})
+
+    def get_current_stats(self):
+        return json.dumps(self.current_stats)
 
 class UDPServer:
     def __init__(self, server_ip='192.168.88.21', server_port=5409):
@@ -160,7 +135,6 @@ class UDPServer:
         self.total_sequences = 0
         self.last_five_start = 0
         self.total_retransmissions = 0
-        self.total_packets_sent = 0
         self.monitor = UDPServerMonitor()
         self.running = True
         self.current_transmission = None
@@ -171,7 +145,6 @@ class UDPServer:
         self.total_sequences = 0
         self.last_five_start = 0
         self.total_retransmissions = 0
-        self.total_packets_sent = 0
         self.last_send_time = 0
         self.running = True
         self.ack_received.clear()
@@ -180,16 +153,6 @@ class UDPServer:
     def start_new_session(self):
         self.reset_stats()
         return self.current_session_id
-
-    def end_current_session(self):
-        if self.current_session_id:
-            self.running = False  # Force stop the send_data loop
-            stats = {
-                'total_packets': self.total_packets_sent,
-                'success_rate': len([p for p in self.monitor.current_stats['packets'] if p['status'] == 'acked']) / self.total_packets_sent if self.total_packets_sent > 0 else 0,
-                'avg_throughput': self.monitor.current_stats['performance_metrics']['throughput']
-            }
-            self.current_session_id = None
 
     def _start_web_server(self):
         app = Flask(__name__, static_folder='static')
@@ -215,8 +178,8 @@ class UDPServer:
                 self.current_transmission.start()
                 return jsonify({'status': 'started', 'session_id': self.current_session_id})
             else:
-                self.running = False
-                self.end_current_session()
+                self.current_transmission.stop()
+                self.reset_stats()
                 return jsonify({'status': 'stopping'})
 
         def run_flask():
@@ -262,15 +225,14 @@ class UDPServer:
         packet = sequence_number_bytes + data
         if is_last:
             packet += b"END"
+        proxy_address = self.get_proxy_address(sequence_number)
         self.monitor.record_event('packet_sent', 
             sequence=sequence_number,
             timestamp=datetime.now().isoformat(),
             size=len(data),
-            path='path1' if sequence_number >= self.last_five_start else 'path2'
+            path='path1' if proxy_address == self.proxy_path1 else 'path2'
         )
-        proxy_address = self.get_proxy_address(sequence_number)
         self.server_socket.sendto(packet, proxy_address)
-        self.total_packets_sent += 1
         self.last_send_time = time.time()
 
     def get_unacked_sequences(self) -> set:
@@ -309,7 +271,6 @@ class UDPServer:
             if self.running == False: # Stop the transmission
                 break
             self.last_send_time = 0
-            self.total_packets_sent = 0
             self.total_retransmissions = 0
             start_time = time.time()
             full_data = generate_packet_data(1, 100000)
@@ -326,17 +287,21 @@ class UDPServer:
                 print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
                 print(f"Total sequences: {self.total_sequences}")
                 print("=====================================")
+                self.monitor.record_event('compression_info',
+                    original_size=len(full_data),
+                    compressed_size=len(compressed_data), 
+                    ratio=len(compressed_data)/len(full_data)* 100
+                )
             print(f"\nStarting transmission {run + 1}/{runTimes}")
+            self.monitor.record_event('transmission_status',
+                current_run=run+1,
+                total_runs=runTimes,
+                status='running'
+            )
             for seq in range(self.total_sequences):
                 chunk = compressed_data[seq * batch_size:(seq + 1) * batch_size]
                 is_last = (seq == self.total_sequences - 1)
-                self.monitor.record_event('transmission_start', 
-                    timestamp=datetime.now().isoformat()
-                )
                 self.send_packet(seq, chunk, is_last)
-                self.monitor.record_event('transmission_end',
-                    timestamp=datetime.now().isoformat()
-                )
             time.sleep(0.05)
             if not self.handle_retransmissions(compressed_data, batch_size):
                 print("Transmission failed")
@@ -352,6 +317,14 @@ class UDPServer:
             total_rtt += total_time
             total_throughput += throughput
             runs_completed += 1
+            self.monitor.record_event('performance_update',
+                total_rtt=total_rtt,
+                average_rtt=total_rtt/runs_completed,
+                total_throughput=total_throughput,
+                average_throughput=total_throughput/runs_completed,
+                total_packet_loss_rate=total_packet_loss_rate,
+                average_packet_loss_rate=total_packet_loss_rate/runs_completed
+            )
 
         print("\nFinal Statistics:")
         print(f"Average RTT in {runs_completed} runs: {total_rtt / runs_completed:.2f} seconds")
