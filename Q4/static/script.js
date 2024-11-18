@@ -82,7 +82,7 @@ async function stopTransmission() {
 
 // Data Updates
 function startPeriodicUpdates() {
-    updateInterval = setInterval(fetchStats, 1000);
+    updateInterval = setInterval(fetchStats, 40);
 }
 
 function stopPeriodicUpdates() {
@@ -163,11 +163,17 @@ function updateTimeline(stats) {
     const path2Timeline = document.getElementById('path2Timeline');
     const ackTimeline = document.getElementById('ackTimeline');
 
-    // Use single shared start time for all paths
+    // Calculate absolute time references
     const globalStartTime = Math.min(...stats.packets.map(p => p.timestamp));
     const endTime = Math.max(...stats.packets.map(p => p.timestamp));
-    const duration = (endTime - globalStartTime) / 1000;
-
+    const totalDuration = endTime - globalStartTime;
+    
+    // Define timeline display width (adjust as needed)
+    const TIMELINE_WIDTH = 10; // pixels
+    
+    // Calculate scaling factor
+    const timeToPixelRatio = TIMELINE_WIDTH / totalDuration;
+    
     // Sort packets by timestamp
     const sortedPackets = [...stats.packets].sort((a, b) => a.timestamp - b.timestamp);
 
@@ -189,14 +195,17 @@ function updateTimeline(stats) {
         const packetEl = createPacketElement(packet);
         packetEl.dataset.packetId = packetId;
         
-        const relativeTime = (packet.timestamp - globalStartTime) / 1000;
-        const baseSpacing = relativeTime * 50;
-        
-        let extraSpacing = packet.path === 'path1' ? 25 : 0;
-        packetEl.style.marginLeft = `${baseSpacing + extraSpacing}px`;
+        // Calculate position using the new scaling factor
+        console.log('Global Start Time:', globalStartTime,'- Packet Time:', packet.timestamp, '= Relative Time:', packet.timestamp - globalStartTime);
+        const relativeTime = packet.timestamp - globalStartTime;
+        const position = relativeTime * timeToPixelRatio;
+        packetEl.style.marginLeft = `${position}px`;
 
-        // Append only new packets
+        // Append to appropriate timeline
         if (packet.type === 'acked') {
+            console.log('Global Start Time:', globalStartTime);
+            console.log('Relative Time:', relativeTime);
+            console.log('Position:', position);
             ackTimeline.appendChild(packetEl);
         } else if (packet.path === 'path1') {
             path1Timeline.appendChild(packetEl);
@@ -205,7 +214,7 @@ function updateTimeline(stats) {
         }
     });
 
-    // Clean up old packets that are no longer in stats
+    // Clean up old packets
     const currentPacketIds = new Set(sortedPackets.map(p => 
         `${p.path || 'ack'}-${p.timestamp}`
     ));
@@ -218,7 +227,6 @@ function updateTimeline(stats) {
         });
     });
 }
-
 function createPacketElement(packet) {
     const el = document.createElement('div');
     el.id = `packet-${packet.sequence}`;
@@ -226,7 +234,7 @@ function createPacketElement(packet) {
     el.textContent = `#${packet.sequence}`;
     
     // Enhanced tooltip
-    const time = new Date(packet.timestamp).toLocaleTimeString();
+    const time = packet.timestamp;
     const size = packet.size ? `${(packet.size / 1024).toFixed(2)}KB` : 'N/A';
     
     el.title = `Sequence: ${packet.sequence}

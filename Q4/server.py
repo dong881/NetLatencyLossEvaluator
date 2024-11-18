@@ -203,7 +203,7 @@ class UDPServer:
                         self.ack_received[sequence_number] = True
                         self.monitor.record_event('packet_acked',
                             sequence=sequence_number,
-                            timestamp=datetime.now().isoformat()
+                            timestamp=time.time(),
                         )
             except Exception as e:
                 print(f"Error in ACK listener: {e}")
@@ -228,7 +228,7 @@ class UDPServer:
         proxy_address = self.get_proxy_address(sequence_number)
         self.monitor.record_event('packet_sent', 
             sequence=sequence_number,
-            timestamp=datetime.now().isoformat(),
+            timestamp=time.time(),
             size=len(data),
             path='path1' if proxy_address == self.proxy_path1 else 'path2'
         )

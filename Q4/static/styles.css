@@ -265,6 +265,11 @@ body {
     margin-right: 1.5rem; /* Add space between packets */
 }
 
+.transparent {
+    opacity: 0;
+    pointer-events: none;
+}
+
 .timeline-container {
     overflow-x: auto;
     overflow-y: hidden;
