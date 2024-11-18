@@ -276,4 +276,33 @@ function calculateThroughput(stats) {
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     fetchStats();
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check saved theme
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    applyTheme(savedTheme);
+    
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = localStorage.getItem('theme') || 'system';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
 });
+
+function applyTheme(theme) {
+    // Remove any existing theme class
+    document.body.classList.remove('light-theme', 'dark-theme');
+    
+    if (theme === 'system') {
+        // Use system preference
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-theme');
+        } else {
+            document.body.classList.add('light-theme');
+        }
+    } else {
+        // Use explicit theme choice
+        document.body.classList.add(`${theme}-theme`);
+    }
+}

@@ -10,13 +10,19 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="./static/styles.css">
 </head>
-<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen text-white">
+<body class="from-gray-50 to-gray-100 min-h-screen text-gray-800">
     <div class="container mx-auto px-6 py-10">
-        <!-- Enhanced Header Section -->
+        <!-- Header Section -->
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <svg class="theme-toggle-icon" viewBox="0 0 24 24" width="24" height="24">
+                <path class="sun" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                <path class="moon" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
         <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
             <div class="flex items-center space-x-4">
-                <div class="w-2 h-12 bg-gradient-to-b from-blue-400 to-teal-400 rounded-full"></div>
-                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
+                <div class="w-2 h-12 bg-gradient-to-b from-indigo-600 to-blue-500 rounded-full"></div>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500">
                     UDP Network Monitor
                 </h1>
             </div>
