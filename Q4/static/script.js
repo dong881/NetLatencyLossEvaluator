@@ -1,82 +1,3 @@
-// script.js
-
-// Chart configurations
-const chartConfigs = {
-    throughput: {
-        type: 'line',
-        options: {
-            responsive: true,
-            animation: {
-                duration: 300
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: { color: '#9CA3AF' }
-                },
-                x: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: { color: '#9CA3AF' }
-                }
-            },
-            plugins: {
-                legend: {
-                    labels: { color: '#9CA3AF' }
-                }
-            }
-        },
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Throughput (KB/s)',
-                data: [],
-                borderColor: '#3B82F6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        }
-    },
-    packets: {
-        type: 'bar',
-        options: {
-            responsive: true,
-            animation: {
-                duration: 300
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: { color: '#9CA3AF' }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: { color: '#9CA3AF' }
-                }
-            }
-        },
-        data: {
-            labels: ['Total', 'Acknowledged'],
-            datasets: [{
-                data: [0, 0],
-                backgroundColor: ['#3B82F6', '#14B8A6'],
-                borderColor: ['#2563EB', '#0D9488'],
-                borderWidth: 1
-            }]
-        }
-    }
-};
-
 // Global state
 let isTransmitting = false;
 let currentSessionId = null;
@@ -89,17 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleBtn = document.getElementById('toggleBtn');
     statusText = document.getElementById('statusText');
     timeline = document.getElementById('packetTimeline');
-
-    // Initialize charts
-    throughputChart = new Chart(
-        document.getElementById('throughputChart').getContext('2d'),
-        chartConfigs.throughput
-    );
-
-    packetChart = new Chart(
-        document.getElementById('packetChart').getContext('2d'),
-        chartConfigs.packets
-    );
 
     // Add event listeners
     toggleBtn.addEventListener('click', async () => {
@@ -182,7 +92,6 @@ async function fetchStats() {
 
 function updateUI(stats) {
     updateStatus(stats);
-    updateCharts(stats);
     updateTimeline(stats);
 }
 
@@ -207,29 +116,6 @@ function updatePathStats(pathStats) {
         document.getElementById(`${path}Stats`).textContent = 
             `${stats.success}/${stats.packets} packets (${successRate.toFixed(1)}%)`;
     });
-}
-
-function updateCharts(stats) {
-    // Update throughput chart
-    if (stats.throughput_history.length > 0) {
-        const labels = stats.throughput_history.map(th => 
-            moment(th.timestamp).format('HH:mm:ss')
-        );
-        const data = stats.throughput_history.map(th => 
-            (th.value / 1024).toFixed(2)
-        );
-        
-        throughputChart.data.labels = labels;
-        throughputChart.data.datasets[0].data = data;
-        throughputChart.update();
-    }
-    
-    // Update packet chart
-    packetChart.data.datasets[0].data = [
-        stats.packets.length,
-        stats.packets.filter(p => p.status === 'acked').length
-    ];
-    packetChart.update();
 }
 
 function updateTimeline(stats) {
