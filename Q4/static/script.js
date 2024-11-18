@@ -159,27 +159,83 @@ function updatePathStats(pathStats) {
 }
 
 function updateTimeline(stats) {
-    const newPackets = stats.packets.filter(packet => 
-        !document.getElementById(`packet-${packet.id}`)
-    );
-    
-    newPackets.forEach(packet => {
+    const path1Timeline = document.getElementById('path1Timeline');
+    const path2Timeline = document.getElementById('path2Timeline');
+    const ackTimeline = document.getElementById('ackTimeline');
+
+    // Use single shared start time for all paths
+    const globalStartTime = Math.min(...stats.packets.map(p => p.timestamp));
+    const endTime = Math.max(...stats.packets.map(p => p.timestamp));
+    const duration = (endTime - globalStartTime) / 1000;
+
+    // Sort packets by timestamp
+    const sortedPackets = [...stats.packets].sort((a, b) => a.timestamp - b.timestamp);
+
+    // Track existing packets
+    const existingPackets = {
+        path1: new Set([...path1Timeline.children].map(el => el.dataset.packetId)),
+        path2: new Set([...path2Timeline.children].map(el => el.dataset.packetId)),
+        ack: new Set([...ackTimeline.children].map(el => el.dataset.packetId))
+    };
+
+    sortedPackets.forEach(packet => {
+        const packetId = `${packet.path || 'ack'}-${packet.timestamp}`;
+        
+        // Skip if packet already exists
+        if (packet.type === 'acked' && existingPackets.ack.has(packetId)) return;
+        if (packet.path === 'path1' && existingPackets.path1.has(packetId)) return;
+        if (packet.path === 'path2' && existingPackets.path2.has(packetId)) return;
+
         const packetEl = createPacketElement(packet);
-        timeline.appendChild(packetEl);
-        timeline.scrollLeft = timeline.scrollWidth;
+        packetEl.dataset.packetId = packetId;
+        
+        const relativeTime = (packet.timestamp - globalStartTime) / 1000;
+        const baseSpacing = relativeTime * 50;
+        
+        let extraSpacing = packet.path === 'path1' ? 25 : 0;
+        packetEl.style.marginLeft = `${baseSpacing + extraSpacing}px`;
+
+        // Append only new packets
+        if (packet.type === 'acked') {
+            ackTimeline.appendChild(packetEl);
+        } else if (packet.path === 'path1') {
+            path1Timeline.appendChild(packetEl);
+        } else {
+            path2Timeline.appendChild(packetEl);
+        }
+    });
+
+    // Clean up old packets that are no longer in stats
+    const currentPacketIds = new Set(sortedPackets.map(p => 
+        `${p.path || 'ack'}-${p.timestamp}`
+    ));
+
+    [path1Timeline, path2Timeline, ackTimeline].forEach(track => {
+        [...track.children].forEach(el => {
+            if (!currentPacketIds.has(el.dataset.packetId)) {
+                el.remove();
+            }
+        });
     });
 }
 
 function createPacketElement(packet) {
     const el = document.createElement('div');
-    el.id = `packet-${packet.id}`;
-    el.className = `packet packet-${packet.path}`;
-    el.textContent = `#${packet.id}`;
+    el.id = `packet-${packet.sequence}`;
+    el.className = `packet packet-${packet.path || 'type-acked'}`;
+    el.textContent = `#${packet.sequence}`;
     
-    if (packet.status === 'acked') {
-        el.classList.add('packet-ack');
-    }
+    // Enhanced tooltip
+    const time = new Date(packet.timestamp).toLocaleTimeString();
+    const size = packet.size ? `${(packet.size / 1024).toFixed(2)}KB` : 'N/A';
     
+    el.title = `Sequence: ${packet.sequence}
+                    Time: ${time}
+                    ${packet.path ? 'Path: ' + packet.path : ''}
+                    ${packet.size ? 'Size: ' + size : ''}
+                    Type: ${packet.type}
+                    Status: ${packet.status}`;
+
     return el;
 }
 

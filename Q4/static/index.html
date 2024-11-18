@@ -121,14 +121,25 @@
             </div>
         </div>
     
-        <!-- Enhanced Timeline Section -->
+        <!-- Timeline Section HTML -->
         <div class="dashboard-card mb-10">
             <h2 class="card-title flex items-center">
                 <span class="mr-3">⏱️</span>
                 Packet Timeline
             </h2>
-            <div id="packetTimeline" class="packet-timeline h-32 overflow-y-auto scrollbar-thin">
-                <!-- Dynamic packets here -->
+            <div class="timeline-container">
+                <div class="timeline-track">
+                    <div class="track-label">Path 1</div>
+                    <div id="path1Timeline" class="track-content"></div>
+                </div>
+                <div class="timeline-track">
+                    <div class="track-label">Path 2</div>
+                    <div id="path2Timeline" class="track-content"></div>
+                </div>
+                <div class="timeline-track">
+                    <div class="track-label">ACKs</div>
+                    <div id="ackTimeline" class="track-content"></div>
+                </div>
             </div>
         </div>
 
