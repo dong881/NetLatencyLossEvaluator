@@ -22,6 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial stats fetch
     fetchStats();
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // Check saved theme
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    applyTheme(savedTheme);
+    
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = localStorage.getItem('theme') || 'system';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
 });
 
 // Transmission Control
@@ -104,16 +116,36 @@ function updateUI(stats) {
 }
 
 function updateStatus(stats) {
-    statusText.textContent = stats.transmission_status;
-    document.getElementById('totalPackets').textContent = stats.packets.length;
-    
-    const successRate = calculateSuccessRate(stats.packets);
-    document.getElementById('successRate').textContent = `${successRate}%`;
-    
-    const currentThroughput = calculateThroughput(stats);
-    document.getElementById('throughput').textContent = `${currentThroughput.toFixed(2)} KB/s`;
-    
-    updatePathStats(stats.path_stats);
+    // Update Compression Stats
+    document.getElementById('originalSize').textContent = (stats.compression.original_size / 1024).toFixed(2);
+    document.getElementById('compressedSize').textContent = (stats.compression.compressed_size / 1024).toFixed(2);
+    document.getElementById('compressionRatio').textContent = `${stats.compression.ratio.toFixed(1)}%`;
+
+    // Update Transmission Stats
+    document.getElementById('currentRun').textContent = stats.transmission.current_run;
+    document.getElementById('totalRuns').textContent = stats.transmission.total_runs;
+    document.getElementById('status').textContent = stats.transmission.status;
+
+    // Update Performance Metrics
+    document.getElementById('averageRtt').textContent = `${stats.performance.average_rtt.toFixed(2)} ms`;
+    document.getElementById('totalRtt').textContent = `${stats.performance.total_rtt.toFixed(2)} ms`;
+    document.getElementById('avgThroughput').textContent = `${stats.performance.average_throughput.toFixed(2)} KB/s`;
+    document.getElementById('packetLossRate').textContent = `${stats.performance.average_packet_loss_rate.toFixed(1)}%`;
+
+    // Update Path Statistics
+    const path1 = stats.paths.path1;
+    const path2 = stats.paths.path2;
+
+    const path1SuccessRate = path1.packets > 0 ? (path1.success / path1.packets * 100).toFixed(1) : '0.0';
+    const path2SuccessRate = path2.packets > 0 ? (path2.success / path2.packets * 100).toFixed(1) : '0.0';
+
+    document.getElementById('path1Stats').textContent = 
+        `${path1.success}/${path1.packets} packets (${path1SuccessRate}%)`;
+    document.getElementById('path1Progress').style.width = `${path1SuccessRate}%`;
+
+    document.getElementById('path2Stats').textContent = 
+        `${path2.success}/${path2.packets} packets (${path2SuccessRate}%)`;
+    document.getElementById('path2Progress').style.width = `${path2SuccessRate}%`;
 }
 
 function updatePathStats(pathStats) {
@@ -150,39 +182,6 @@ function createPacketElement(packet) {
     
     return el;
 }
-
-// Utility Functions
-function calculateSuccessRate(packets) {
-    const successful = packets.filter(p => p.status === 'acked').length;
-    return packets.length > 0 
-        ? ((successful / packets.length) * 100).toFixed(1)
-        : '0.0';
-}
-
-function calculateThroughput(stats) {
-    if (!stats.start_time || !stats.packets.length) return 0;
-    
-    const totalData = stats.packets.reduce((sum, p) => sum + p.size, 0);
-    const duration = moment().diff(moment(stats.start_time), 'seconds');
-    return duration > 0 ? (totalData / duration) / 1024 : 0;
-}
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    fetchStats();
-    const themeToggle = document.getElementById('theme-toggle');
-    
-    // Check saved theme
-    const savedTheme = localStorage.getItem('theme') || 'system';
-    applyTheme(savedTheme);
-    
-    themeToggle.addEventListener('click', () => {
-        const currentTheme = localStorage.getItem('theme') || 'system';
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        applyTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-    });
-});
 
 function applyTheme(theme) {
     // Remove any existing theme class
