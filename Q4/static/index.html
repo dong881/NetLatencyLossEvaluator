@@ -6,243 +6,114 @@
     <title>UDP Network Monitor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="./static/script.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./static/styles.css">
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen text-white">
     <div class="container mx-auto px-4 py-8">
+        <!-- Header Section -->
         <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">UDP Network Monitor</h1>
-            <div class="space-x-4">
-                <button id="startBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                    Start Transmission
-                </button>
-                <button id="stopBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-                    Stop Transmission
-                </button>
-            </div>
+            <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
+                UDP Network Monitor
+            </h1>
+            <button id="toggleBtn" class="transmission-btn">
+                Start Transmission
+            </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Main Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Status Card -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Transmission Status</h2>
+            <div class="dashboard-card">
+                <h2 class="card-title">Transmission Status</h2>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-sm text-gray-500">Status</p>
-                        <p id="statusText" class="text-lg font-medium">Idle</p>
+                    <div class="stat-box">
+                        <p class="stat-label">Status</p>
+                        <p id="statusText" class="stat-value">Idle</p>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Total Packets</p>
-                        <p id="totalPackets" class="text-lg font-medium">0</p>
+                    <div class="stat-box">
+                        <p class="stat-label">Total Packets</p>
+                        <p id="totalPackets" class="stat-value">0</p>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Success Rate</p>
-                        <p id="successRate" class="text-lg font-medium">0%</p>
+                    <div class="stat-box">
+                        <p class="stat-label">Success Rate</p>
+                        <p id="successRate" class="stat-value">0%</p>
                     </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Current Throughput</p>
-                        <p id="throughput" class="text-lg font-medium">0 KB/s</p>
+                    <div class="stat-box">
+                        <p class="stat-label">Current Throughput</p>
+                        <p id="throughput" class="stat-value">0 KB/s</p>
                     </div>
                 </div>
             </div>
 
             <!-- Path Statistics -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Path Statistics</h2>
-                <div class="space-y-4">
-                    <div>
-                        <h3 class="text-sm text-gray-500">Path 1</h3>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div id="path1Progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+            <div class="dashboard-card">
+                <h2 class="card-title">Path Statistics</h2>
+                <div class="space-y-6">
+                    <div class="path-stat">
+                        <div class="flex justify-between mb-2">
+                            <h3 class="text-sm text-blue-400">Path 1</h3>
+                            <p id="path1Stats" class="text-sm">0/0 packets (0%)</p>
                         </div>
-                        <p id="path1Stats" class="text-sm mt-1">0/0 packets (0%)</p>
+                        <div class="progress-bar">
+                            <div id="path1Progress" class="progress-fill bg-blue-500"></div>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-sm text-gray-500">Path 2</h3>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div id="path2Progress" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    <div class="path-stat">
+                        <div class="flex justify-between mb-2">
+                            <h3 class="text-sm text-teal-400">Path 2</h3>
+                            <p id="path2Stats" class="text-sm">0/0 packets (0%)</p>
                         </div>
-                        <p id="path2Stats" class="text-sm mt-1">0/0 packets (0%)</p>
+                        <div class="progress-bar">
+                            <div id="path2Progress" class="progress-fill bg-teal-500"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Charts -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Throughput Over Time</h2>
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="dashboard-card">
+                <h2 class="card-title">Throughput Over Time</h2>
                 <canvas id="throughputChart"></canvas>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Packet Statistics</h2>
+            <div class="dashboard-card">
+                <h2 class="card-title">Packet Statistics</h2>
                 <canvas id="packetChart"></canvas>
             </div>
         </div>
+
+        <!-- Packet Timeline Section -->
+        <div class="dashboard-card">
+            <h2 class="card-title">Packet Timeline</h2>
+            <div id="packetTimeline" class="packet-timeline">
+                <!-- Packets will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Session History Section -->
+        <div class="dashboard-card mt-8">
+            <h2 class="card-title">Session History</h2>
+            <div class="overflow-x-auto">
+                <table class="session-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Total Packets</th>
+                            <th>Success Rate</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionHistory">
+                        <!-- Session history will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-
-    <script>
-        // Initialize charts
-        const throughputCtx = document.getElementById('throughputChart').getContext('2d');
-        const packetCtx = document.getElementById('packetChart').getContext('2d');
-
-        const throughputChart = new Chart(throughputCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Throughput (KB/s)',
-                    data: [],
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        const packetChart = new Chart(packetCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Sent', 'Acknowledged'],
-                datasets: [{
-                    label: 'Packets',
-                    data: [0, 0],
-                    backgroundColor: [
-                        'rgba(54, 162, 235, 0.5)',
-                        'rgba(75, 192, 192, 0.5)'
-                    ],
-                    borderColor: [
-                        'rgb(54, 162, 235)',
-                        'rgb(75, 192, 192)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        // UI update functions
-        function updateUI(stats) {
-            // Update status
-            document.getElementById('statusText').textContent = stats.transmission_status;
-            document.getElementById('totalPackets').textContent = stats.packets.length;
-            
-            // Calculate success rate
-            const successfulPackets = stats.packets.filter(p => p.status === 'acked').length;
-            const successRate = stats.packets.length > 0 
-                ? ((successfulPackets / stats.packets.length) * 100).toFixed(1)
-                : 0;
-                document.getElementById('successRate').textContent = `${successRate}%`;
-            
-                // Update throughput
-                const currentThroughput = stats.performance_metrics.throughput;
-                document.getElementById('throughput').textContent = 
-                    `${(currentThroughput / 1024).toFixed(2)} KB/s`;
-    
-                // Update path statistics
-                const path1 = stats.path_stats.path1;
-                const path2 = stats.path_stats.path2;
-                
-                // Path 1 progress
-                const path1Success = path1.packets > 0 ? (path1.success / path1.packets * 100) : 0;
-                document.getElementById('path1Progress').style.width = `${path1Success}%`;
-                document.getElementById('path1Stats').textContent = 
-                    `${path1.success}/${path1.packets} packets (${path1Success.toFixed(1)}%)`;
-                
-                // Path 2 progress
-                const path2Success = path2.packets > 0 ? (path2.success / path2.packets * 100) : 0;
-                document.getElementById('path2Progress').style.width = `${path2Success}%`;
-                document.getElementById('path2Stats').textContent = 
-                    `${path2.success}/${path2.packets} packets (${path2Success.toFixed(1)}%)`;
-    
-                // Update throughput chart
-                if (stats.throughput_history.length > 0) {
-                    throughputChart.data.labels = stats.throughput_history.map(
-                        th => moment(th.timestamp).format('HH:mm:ss')
-                    );
-                    throughputChart.data.datasets[0].data = stats.throughput_history.map(
-                        th => (th.value / 1024).toFixed(2)
-                    );
-                    throughputChart.update();
-                }
-    
-                // Update packet statistics chart
-                packetChart.data.datasets[0].data = [
-                    stats.packets.length,
-                    stats.packets.filter(p => p.status === 'acked').length
-                ];
-                packetChart.update();
-            }
-    
-            // API functions
-            async function fetchStats() {
-                try {
-                    const response = await fetch('/api/stats');
-                    const stats = await response.json();
-                    updateUI(stats);
-                } catch (error) {
-                    console.error('Error fetching stats:', error);
-                }
-            }
-    
-            async function startTransmission() {
-                try {
-                    const response = await fetch('/api/transmission/start', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ runTimes: 5 })
-                    });
-                    const result = await response.json();
-                    if (result.status === 'started') {
-                        document.getElementById('startBtn').disabled = true;
-                        document.getElementById('stopBtn').disabled = false;
-                    }
-                } catch (error) {
-                    console.error('Error starting transmission:', error);
-                }
-            }
-    
-            async function stopTransmission() {
-                try {
-                    const response = await fetch('/api/transmission/stop', {
-                        method: 'POST'
-                    });
-                    const result = await response.json();
-                    if (result.status === 'stopping') {
-                        document.getElementById('startBtn').disabled = false;
-                        document.getElementById('stopBtn').disabled = true;
-                    }
-                } catch (error) {
-                    console.error('Error stopping transmission:', error);
-                }
-            }
-    
-            // Event listeners
-            document.getElementById('startBtn').addEventListener('click', startTransmission);
-            document.getElementById('stopBtn').addEventListener('click', stopTransmission);
-            document.getElementById('stopBtn').disabled = true;
-    
-            // Start periodic updates
-            setInterval(fetchStats, 1000);
-    
-            // Initial fetch
-            fetchStats();
-    </script>
 </body>
 </html>

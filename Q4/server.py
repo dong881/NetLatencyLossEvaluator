@@ -6,6 +6,7 @@ from collections import defaultdict
 import queue
 import json
 from datetime import datetime
+import sqlite3
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import os
@@ -16,11 +17,127 @@ def compress_with_lzma(data: str) -> bytes:
 def generate_packet_data(start: int, end: int, delimiter: str = "|") -> str:
     return delimiter.join(f"Packet {i}" for i in range(start, end + 1))
 
+class Database:
+    def __init__(self):
+        self.db_path = 'transmission_logs.db'
+        self.init_db()
+
+    def init_db(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        # 建立傳輸記錄表
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS transmission_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_time TEXT,
+                end_time TEXT,
+                total_packets INTEGER,
+                success_rate REAL,
+                avg_throughput REAL
+            )
+        ''')
+        
+        # 建立封包詳細記錄表
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS packet_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER,
+                sequence_number INTEGER,
+                path TEXT,
+                send_time TEXT,
+                ack_time TEXT,
+                status TEXT,
+                size INTEGER,
+                FOREIGN KEY(session_id) REFERENCES transmission_sessions(id)
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+
+    def start_new_session(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute(
+            'INSERT INTO transmission_sessions (start_time) VALUES (?)',
+            (datetime.now().isoformat(),)
+        )
+        session_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        return session_id
+
+    def log_packet(self, session_id, packet_data):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO packet_logs 
+            (session_id, sequence_number, path, send_time, size, status) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            session_id,
+            packet_data['sequence'],
+            packet_data['path'],
+            packet_data['timestamp'],
+            packet_data['size'],
+            'sent'
+        ))
+        conn.commit()
+        conn.close()
+
+    def update_packet_ack(self, session_id, sequence_number, ack_time):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''
+            UPDATE packet_logs 
+            SET status = ?, ack_time = ?
+            WHERE session_id = ? AND sequence_number = ?
+        ''', ('acked', ack_time, session_id, sequence_number))
+        conn.commit()
+        conn.close()
+
+    def end_session(self, session_id, stats):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''
+            UPDATE transmission_sessions 
+            SET end_time = ?, total_packets = ?, success_rate = ?, avg_throughput = ?
+            WHERE id = ?
+        ''', (
+            datetime.now().isoformat(),
+            stats['total_packets'],
+            stats['success_rate'],
+            stats['avg_throughput'],
+            session_id
+        ))
+        conn.commit()
+        conn.close()
+
+    def get_session_history(self):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('SELECT * FROM transmission_sessions ORDER BY start_time DESC')
+        sessions = c.fetchall()
+        conn.close()
+        return sessions
+
+    def get_session_details(self, session_id):
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('SELECT * FROM packet_logs WHERE session_id = ? ORDER BY send_time', (session_id,))
+        packets = c.fetchall()
+        conn.close()
+        return packets
 
 
 class UDPServerMonitor:
     def __init__(self):
         self.stats_queue = queue.Queue()
+        self.db = Database()
+        self.current_session_id = None
+        self.reset_stats()
+        self._start_stats_processor()
         self.current_stats = {
             'start_time': None,
             'packets': [],
@@ -44,6 +161,30 @@ class UDPServerMonitor:
             'transmission_status': 'idle'
         }
         self._start_stats_processor()
+
+    # 在 UDPServerMonitor 類中增加一個方法來重置統計數據
+    def reset_stats(self):
+        self.current_stats = {
+            'start_time': None,
+            'packets': [],
+            'throughput_history': [],
+            'total_data_sent': 0,
+            'compression_stats': None,
+            'active_transmission': False,
+            'last_update': None,
+            'error_count': 0,
+            'path_stats': {
+                'path1': {'packets': 0, 'success': 0},
+                'path2': {'packets': 0, 'success': 0}
+            },
+            'performance_metrics': {
+                'avg_rtt': 0,
+                'packet_loss_rate': 0,
+                'throughput': 0,
+                'compression_ratio': 0
+            },
+            'transmission_status': 'idle'
+        }
 
     def _start_stats_processor(self):
         def process_stats():
@@ -141,7 +282,34 @@ class UDPServer:
         self.running = True
         self.current_transmission = None
         self._start_web_server()
+        self.db = Database()
+        self.current_session_id = None
         
+    def reset_stats(self):
+        self.total_sequences = 0
+        self.last_five_start = 0
+        self.total_retransmissions = 0
+        self.total_packets_sent = 0
+        self.last_send_time = 0
+        self.running = True
+        self.ack_received.clear()
+        self.monitor.reset_stats()
+        
+    def start_new_session(self):
+        self.current_session_id = self.db.start_new_session()
+        self.reset_stats()
+        return self.current_session_id
+
+    def end_current_session(self):
+        if self.current_session_id:
+            stats = {
+                'total_packets': self.total_packets_sent,
+                'success_rate': len([p for p in self.monitor.current_stats['packets'] if p['status'] == 'acked']) / self.total_packets_sent if self.total_packets_sent > 0 else 0,
+                'avg_throughput': self.monitor.current_stats['performance_metrics']['throughput']
+            }
+            self.db.end_session(self.current_session_id, stats)
+            self.current_session_id = None
+
     def _start_web_server(self):
         app = Flask(__name__, static_folder='static')
         CORS(app)
@@ -184,12 +352,29 @@ class UDPServer:
         @app.route('/api/throughput/history')
         def get_throughput_history():
             return jsonify(self.monitor.current_stats['throughput_history'])
+        
+        @app.route('/api/transmission/toggle', methods=['POST'])
+        def toggle_transmission():
+            if not self.current_transmission or not self.current_transmission.is_alive():
+                self.start_new_session()
+                self.current_transmission = threading.Thread(
+                    target=self.send_data,
+                    args=(5,),
+                    daemon=True
+                )
+                self.current_transmission.start()
+                return jsonify({'status': 'started', 'session_id': self.current_session_id})
+            else:
+                self.running = False
+                self.end_current_session()
+                return jsonify({'status': 'stopping'})
 
         def run_flask():
             app.run(host='0.0.0.0', port=8080, threaded=True)
 
         flask_thread = threading.Thread(target=run_flask, daemon=True)
         flask_thread.start()
+
     def _start_api_server(self):
         def run_api():
             from flask import Flask, jsonify

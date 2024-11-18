@@ -1,0 +1,138 @@
+/* Custom Properties */
+:root {
+    --card-bg: rgba(17, 24, 39, 0.8);
+    --border-color: rgba(59, 130, 246, 0.2);
+    --hover-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Card Styles */
+.dashboard-card {
+    @apply bg-opacity-80 backdrop-blur-lg rounded-xl shadow-lg p-6;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.card-title {
+    @apply text-xl font-semibold mb-4 text-blue-400;
+}
+
+/* Stats Box Styles */
+.stat-box {
+    @apply p-4 rounded-lg;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid var(--border-color);
+}
+
+.stat-label {
+    @apply text-sm text-gray-400 mb-1;
+}
+
+.stat-value {
+    @apply text-lg font-medium text-white;
+}
+
+/* Progress Bar Styles */
+.progress-bar {
+    @apply w-full h-2.5 rounded-full bg-gray-700;
+    overflow: hidden;
+}
+
+.progress-fill {
+    @apply h-full rounded-full;
+    transition: width 0.3s ease;
+}
+
+/* Transmission Button Styles */
+.transmission-btn {
+    @apply px-6 py-2 rounded-lg font-medium transition-all duration-300;
+    background: linear-gradient(45deg, #3B82F6, #14B8A6);
+}
+
+.transmission-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.transmission-btn.active {
+    background: linear-gradient(45deg, #EF4444, #F59E0B);
+}
+
+/* Packet Timeline Styles */
+.packet-timeline {
+    @apply mt-4 overflow-x-auto;
+    min-height: 150px;
+    white-space: nowrap;
+}
+
+.packet {
+    @apply inline-block px-2 py-1 rounded m-1 text-xs;
+    animation: fadeIn 0.3s ease;
+}
+
+.packet-path1 {
+    @apply bg-blue-500 text-white;
+}
+
+.packet-path2 {
+    @apply bg-teal-500 text-white;
+}
+
+.packet-ack {
+    @apply bg-green-500 text-white;
+}
+
+/* Session Table Styles */
+.session-table {
+    @apply w-full text-sm;
+}
+
+.session-table th {
+    @apply px-4 py-2 text-left text-gray-400;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.session-table td {
+    @apply px-4 py-2;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.session-table tr:hover {
+    background: var(--hover-color);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .container {
+        @apply px-2;
+    }
+    
+    .dashboard-card {
+        @apply p-4;
+    }
+
+    .stat-box {
+        @apply p-2;
+    }
+
+    .transmission-btn {
+        @apply px-4 py-2 text-sm;
+    }
+}
