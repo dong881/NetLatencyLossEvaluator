@@ -20,13 +20,15 @@
 .dark-theme {
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --border-light: rgba(255,255,255,0.12);
-    --card-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.2);
-    --card-bg: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(30, 41, 59, 0.95));
-    --table-header-bg: rgba(15, 23, 42, 0.6);
-    --progress-bar-bg: rgba(255,255,255,0.08);
+    /* Maximize text contrast */
+    --text-primary: #ffffff;
+    --text-secondary: #e2e8f0;  /* Lighter secondary text */
+    --border-light: rgba(255,255,255,0.3);  /* Increased border opacity */
+    --card-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.6);  /* Stronger shadow */
+    /* Solid background instead of gradient for better readability */
+    --card-bg: #1e293b;
+    --table-header-bg: #0f172a;
+    --progress-bar-bg: rgba(255,255,255,0.15);
 }
 
 /* Base Styles */
@@ -51,6 +53,29 @@ body {
 .dashboard-card:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     transform: translateY(-2px);
+}
+
+/* Enhance dark theme card visibility */
+.dark-theme .dashboard-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--card-shadow);
+    /* Add subtle inner glow */
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    color: #ffffff;  /* Force white color for titles */
+}
+
+.dark-theme .card-title {
+    color: #ffffff;  /* Force white color for titles */
+}
+
+.dark-theme .stat-label {
+    color: #e2e8f0;  /* Lighter color for better visibility */
+}
+
+.dark-theme .stat-value {
+    color: #ffffff;  /* Pure white for important values */
+    text-shadow: 0 0 1px rgba(255, 255, 255, 0.1);  /* Subtle text shadow */
 }
 
 /* Typography */
