@@ -158,91 +158,84 @@ function updatePathStats(pathStats) {
     });
 }
 
-// Variables to store the current position for each path
-let path1CurrentPosition = 0;
-let path2CurrentPosition = 0;
-let ackCurrentPosition = 0;
 function updateTimeline(stats) {
-    const path1Timeline = document.getElementById('path1Timeline');
-    const path2Timeline = document.getElementById('path2Timeline');
-    const ackTimeline = document.getElementById('ackTimeline');
+    const ctx = document.getElementById('packetTimelineChart').getContext('2d');
 
-    // Calculate absolute time references
-    const globalStartTime = Math.min(...stats.packets.map(p => p.timestamp));
-    const endTime = Math.max(...stats.packets.map(p => p.timestamp));
-    const totalDuration = endTime - globalStartTime;
-    
     // Sort packets by timestamp
     const sortedPackets = [...stats.packets].sort((a, b) => a.timestamp - b.timestamp);
 
-    // Track existing packets
-    const existingPackets = {
-        path1: new Set([...path1Timeline.children].map(el => el.dataset.packetId)),
-        path2: new Set([...path2Timeline.children].map(el => el.dataset.packetId)),
-        ack: new Set([...ackTimeline.children].map(el => el.dataset.packetId))
-    };
+    // Prepare data for Chart.js
+    const path1Data = sortedPackets.filter(packet => packet.path === 'path1').map(packet => ({ x: packet.timestamp, y: 1 }));
+    const path2Data = sortedPackets.filter(packet => packet.path === 'path2').map(packet => ({ x: packet.timestamp, y: 2 }));
+    const ackData = sortedPackets.filter(packet => packet.type === 'acked').map(packet => ({ x: packet.timestamp, y: 3 }));
 
-    sortedPackets.forEach(packet => {
-        const packetId = `${packet.path || 'ack'}-${packet.timestamp}`;
-        const path = packet.type === 'acked' ? 'ack' : packet.path;
-        
-        if (existingPackets[path].has(packetId)) return;
-
-        const packetEl = createPacketElement(packet);
-        packetEl.dataset.packetId = packetId;
-        
-        // Calculate the absolute left position
-        const absoluteLeftPosition = (packet.timestamp - globalStartTime) / totalDuration * 100;
-
-        // Determine the current position for the path
-        let timeline;
-        if (path === 'ack') {
-            timeline = ackTimeline;
-        } else if (path === 'path1') {
-            timeline = path1Timeline;
-        } else {
-            timeline = path2Timeline;
-        }
-
-        // Set the absolute left position
-        packetEl.style.position = 'absolute';
-        packetEl.style.left = `${absoluteLeftPosition}%`;
-
-        // Append to appropriate timeline
-        timeline.appendChild(packetEl);
-    });
-
-    // Clean up old packets
-    const currentPacketIds = new Set(sortedPackets.map(p => 
-        `${p.path || 'ack'}-${p.timestamp}`
-    ));
-
-    [path1Timeline, path2Timeline, ackTimeline].forEach(track => {
-        [...track.children].forEach(el => {
-            if (!currentPacketIds.has(el.dataset.packetId)) {
-                el.remove();
+    // Create or update the chart
+    if (window.packetTimelineChart && window.packetTimelineChart.data && window.packetTimelineChart.data.datasets) {
+        window.packetTimelineChart.data.datasets[0].data = path1Data;
+        window.packetTimelineChart.data.datasets[1].data = path2Data;
+        window.packetTimelineChart.data.datasets[2].data = ackData;
+        window.packetTimelineChart.update();
+    } else {
+        window.packetTimelineChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Path 1',
+                        data: path1Data,
+                        backgroundColor: 'rgba(75, 192, 192, 1)',
+                        showLine: false
+                    },
+                    {
+                        label: 'Path 2',
+                        data: path2Data,
+                        backgroundColor: 'rgba(153, 102, 255, 1)',
+                        showLine: false
+                    },
+                    {
+                        label: 'ACKs',
+                        data: ackData,
+                        backgroundColor: 'rgba(255, 159, 64, 1)',
+                        showLine: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                title: {
+                    display: true,
+                    text: 'Packet Timeline'
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Timestamp'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Path'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (value === 1) return 'Path 1';
+                                if (value === 2) return 'Path 2';
+                                if (value === 3) return 'ACKs';
+                                return '';
+                            },
+                            stepSize: 1,
+                            min: 0,
+                            max: 4
+                        }
+                    }
+                }
             }
         });
-    });
-}
-function createPacketElement(packet) {
-    const el = document.createElement('div');
-    el.id = `packet-${packet.sequence}`;
-    el.className = `packet packet-${packet.path || 'type-acked'}`;
-    el.textContent = `#${packet.sequence}`;
-    
-    // Enhanced tooltip
-    const time = packet.timestamp;
-    const size = packet.size ? `${(packet.size / 1024).toFixed(2)}KB` : 'N/A';
-    
-    el.title = `Sequence: ${packet.sequence}
-                    Time: ${time}
-                    ${packet.path ? 'Path: ' + packet.path : ''}
-                    ${packet.size ? 'Size: ' + size : ''}
-                    Type: ${packet.type}
-                    Status: ${packet.status}`;
-
-    return el;
+    }
 }
 
 function applyTheme(theme) {

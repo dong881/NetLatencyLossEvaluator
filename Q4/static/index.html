@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     <script src="./static/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="./static/styles.css">
 </head>
@@ -127,20 +128,7 @@
                 <span class="mr-3">⏱️</span>
                 Packet Timeline
             </h2>
-            <div class="timeline-container">
-                <div class="timeline-track">
-                    <div class="track-label">Path 1</div>
-                    <div id="path1Timeline" class="track-content"></div>
-                </div>
-                <div class="timeline-track">
-                    <div class="track-label">Path 2</div>
-                    <div id="path2Timeline" class="track-content"></div>
-                </div>
-                <div class="timeline-track">
-                    <div class="track-label">ACKs</div>
-                    <div id="ackTimeline" class="track-content"></div>
-                </div>
-            </div>
+            <canvas id="packetTimelineChart"></canvas>
         </div>
 
         <!-- Enhanced Session History -->
