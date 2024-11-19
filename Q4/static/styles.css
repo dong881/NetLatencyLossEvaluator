@@ -263,6 +263,7 @@ body {
     z-index: 1;
     flex-shrink: 0;
     margin-right: 10px; /* Add space between packets */
+    animation: fadeIn 0.5s ease-out;
 }
 
 .transparent {
@@ -281,6 +282,17 @@ body {
     box-shadow: 0 0 10px rgba(0,0,0,0.2);
 }
 
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 .packet-path1 {
     background: linear-gradient(135deg, #3B82F6, #2563EB);
 }
@@ -291,7 +303,6 @@ body {
 
 .packet-type-acked {
     background: linear-gradient(135deg, #F59E0B, #D97706);
-    animation: ackPulse 0.5s ease;
 }
 
 @keyframes ackPulse {

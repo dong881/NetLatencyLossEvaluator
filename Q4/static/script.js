@@ -161,15 +161,35 @@ function updatePathStats(pathStats) {
 function updateTimeline(stats) {
     const ctx = document.getElementById('packetTimelineChart').getContext('2d');
 
-    // Sort packets by timestamp
+    // 前面的資料準備部分保持不變
     const sortedPackets = [...stats.packets].sort((a, b) => a.timestamp - b.timestamp);
 
-    // Prepare data for Chart.js
-    const path1Data = sortedPackets.filter(packet => packet.path === 'path1').map(packet => ({ x: packet.timestamp, y: 1 }));
-    const path2Data = sortedPackets.filter(packet => packet.path === 'path2').map(packet => ({ x: packet.timestamp, y: 2 }));
-    const ackData = sortedPackets.filter(packet => packet.type === 'acked').map(packet => ({ x: packet.timestamp, y: 3 }));
+    const path1Data = sortedPackets
+        .filter(packet => packet.path === 'path1')
+        .map(packet => ({
+            x: packet.timestamp,
+            y: 0.95,
+            seqNum: packet.sequenceNumber
+        }));
+    
+    const path2Data = sortedPackets
+        .filter(packet => packet.path === 'path2')
+        .map(packet => ({
+            x: packet.timestamp,
+            y: 1,
+            seqNum: packet.sequenceNumber
+        }));
+    
+    const ackData = sortedPackets
+        .filter(packet => packet.type === 'acked')
+        .map(packet => ({
+            x: packet.timestamp,
+            y: 1.05,
+            seqNum: packet.sequenceNumber
+        }));
 
-    // Create or update the chart
+    // 圖表更新邏輯保持不變
+    let pointRadiussize = 28;
     if (window.packetTimelineChart && window.packetTimelineChart.data && window.packetTimelineChart.data.datasets) {
         window.packetTimelineChart.data.datasets[0].data = path1Data;
         window.packetTimelineChart.data.datasets[1].data = path2Data;
@@ -179,61 +199,102 @@ function updateTimeline(stats) {
         window.packetTimelineChart = new Chart(ctx, {
             type: 'scatter',
             data: {
-                datasets: [
-                    {
-                        label: 'Path 1',
-                        data: path1Data,
-                        backgroundColor: 'rgba(75, 192, 192, 1)',
-                        showLine: false
-                    },
-                    {
-                        label: 'Path 2',
-                        data: path2Data,
-                        backgroundColor: 'rgba(153, 102, 255, 1)',
-                        showLine: false
-                    },
-                    {
-                        label: 'ACKs',
-                        data: ackData,
-                        backgroundColor: 'rgba(255, 159, 64, 1)',
-                        showLine: false
-                    }
-                ]
+            datasets: [
+                {
+                label: 'Path 1',
+                data: path1Data,
+                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                pointStyle: 'rectRounded',
+                pointRadius: pointRadiussize,
+                pointHoverRadius: 18,
+                showLine: false
+                },
+                {
+                label: 'Path 2',
+                data: path2Data,
+                backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                pointStyle: 'rectRounded',
+                pointRadius: pointRadiussize,
+                pointHoverRadius: 18,
+                showLine: false
+                },
+                {
+                label: 'ACKs',
+                data: ackData,
+                backgroundColor: 'rgba(255, 159, 64, 0.8)',
+                pointStyle: 'rectRounded',
+                pointRadius: pointRadiussize,
+                pointHoverRadius: 18,
+                showLine: false
+                }
+            ]
             },
             options: {
-                responsive: true,
+            responsive: true,
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            },
+            plugins: {
+                title: {
+                display: true,
+                text: 'Packet Timeline'
+                },
+                tooltip: {
+                enabled: false // 關閉tooltip因為已經直接顯示序號
+                },
+                customLabels: {
+                afterDatasetsDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    chart.data.datasets.forEach((dataset, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    dataset.data.forEach((datapoint, index) => {
+                        const text = datapoint.seqNum.toString();
+                        const position = meta.data[index].getProps(['x', 'y']);
+                        
+                        ctx.save();
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = 'bold 12px Arial';
+                        ctx.fillStyle = 'white';
+                        // 直接在點的位置繪製序號
+                        ctx.fillText(text, position.x, position.y);
+                        ctx.restore();
+                    });
+                    });
+                }
+                }
+            },
+            scales: {
+                x: {
+                display: true,
                 title: {
                     display: true,
-                    text: 'Packet Timeline'
+                    text: 'Timestamp'
+                }
                 },
-                scales: {
-                    x: {
-                        display: true,
-                        title: {
-                            display: true,
-                            text: 'Timestamp'
-                        }
-                    },
-                    y: {
-                        display: true,
-                        title: {
-                            display: true,
-                            text: 'Path'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                if (value === 1) return 'Path 1';
-                                if (value === 2) return 'Path 2';
-                                if (value === 3) return 'ACKs';
-                                return '';
-                            },
-                            stepSize: 1,
-                            min: 0,
-                            max: 4
-                        }
+                y: {
+                display: true,
+                title: {
+                    display: true,
+                    text: 'Path'
+                },
+                min: 0.9,
+                max: 1.1,
+                ticks: {
+                    callback: function(value) {
+                    if (value === 0.95) return 'Path 1';
+                    if (value === 1) return 'Path 2';
+                    if (value === 1.05) return 'ACKs';
+                    return '';
                     }
                 }
+                }
             }
+            },
+            plugins: [{
+            id: 'customLabels'
+            }]
         });
     }
 }
