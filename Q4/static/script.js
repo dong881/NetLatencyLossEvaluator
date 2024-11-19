@@ -158,6 +158,32 @@ function updatePathStats(pathStats) {
     });
 }
 
+// 在建立圖表之前，先定義並註冊插件
+const customLabelsPlugin = {
+    id: 'customLabels',
+    afterDatasetsDraw: (chart) => {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((dataset, i) => {
+            const meta = chart.getDatasetMeta(i);
+            dataset.data.forEach((datapoint, index) => {
+                const text = datapoint.seqNum.toString();
+                const position = meta.data[index].getProps(['x', 'y']);
+                
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillStyle = 'white';
+                ctx.fillText(text, position.x, position.y);
+                ctx.restore();
+            });
+        });
+    }
+};
+
+// 註冊插件
+Chart.register(customLabelsPlugin);
+
 function updateTimeline(stats) {
     const ctx = document.getElementById('packetTimelineChart').getContext('2d');
 
@@ -169,7 +195,7 @@ function updateTimeline(stats) {
         .map(packet => ({
             x: packet.timestamp,
             y: 0.95,
-            seqNum: packet.sequenceNumber
+            seqNum: packet.sequence
         }));
     
     const path2Data = sortedPackets
@@ -177,7 +203,7 @@ function updateTimeline(stats) {
         .map(packet => ({
             x: packet.timestamp,
             y: 1,
-            seqNum: packet.sequenceNumber
+            seqNum: packet.sequence
         }));
     
     const ackData = sortedPackets
@@ -185,7 +211,7 @@ function updateTimeline(stats) {
         .map(packet => ({
             x: packet.timestamp,
             y: 1.05,
-            seqNum: packet.sequenceNumber
+            seqNum: packet.sequence
         }));
 
     // 圖表更新邏輯保持不變
@@ -243,27 +269,6 @@ function updateTimeline(stats) {
                 tooltip: {
                 enabled: false // 關閉tooltip因為已經直接顯示序號
                 },
-                customLabels: {
-                afterDatasetsDraw: function(chart) {
-                    const ctx = chart.ctx;
-                    chart.data.datasets.forEach((dataset, i) => {
-                    const meta = chart.getDatasetMeta(i);
-                    dataset.data.forEach((datapoint, index) => {
-                        const text = datapoint.seqNum.toString();
-                        const position = meta.data[index].getProps(['x', 'y']);
-                        
-                        ctx.save();
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.font = 'bold 12px Arial';
-                        ctx.fillStyle = 'white';
-                        // 直接在點的位置繪製序號
-                        ctx.fillText(text, position.x, position.y);
-                        ctx.restore();
-                    });
-                    });
-                }
-                }
             },
             scales: {
                 x: {
@@ -292,9 +297,7 @@ function updateTimeline(stats) {
                 }
             }
             },
-            plugins: [{
-            id: 'customLabels'
-            }]
+            plugins: [customLabelsPlugin]
         });
     }
 }
