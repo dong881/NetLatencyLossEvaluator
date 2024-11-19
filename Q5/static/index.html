@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UDP Network Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="./static/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./static/styles.css">
+</head>
+<body class="from-gray-50 to-gray-100 min-h-screen text-gray-800">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header Section -->
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+            <svg class="theme-toggle-icon" viewBox="0 0 24 24" width="24" height="24">
+                <path class="sun" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                <path class="moon" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+            <div class="flex items-center space-x-4">
+                <div class="w-2 h-12 bg-gradient-to-b from-indigo-600 to-blue-500 rounded-full"></div>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500">
+                    UDP Network Monitor
+                </h1>
+            </div>
+            <button id="toggleBtn" class="transmission-btn group relative">
+                <span class="flex items-center">
+                    <span class="mr-2 h-2 w-2 rounded-full bg-current transition-all group-hover:scale-125"></span>
+                    Start Transmission
+                </span>
+            </button>
+        </header>
+
+        <!-- Main Grid Layout - Three Column -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            <!-- Transmission & Compression Card -->
+            <div class="dashboard-card transform transition-all hover:scale-[1.02]">
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">🔄</span>
+                    System Status
+                </h2>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Transmission</p>
+                        <p id="runStatus" class="stat-value">
+                            <span id="currentRun">0</span>/<span id="totalRuns">0</span>
+                        </p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Status</p>
+                        <p id="status" class="stat-value">Idle</p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Compression Ratio</p>
+                        <p id="compressionRatio" class="stat-value">0%</p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Size Reduction</p>
+                        <p id="sizeReduction" class="stat-value">
+                            <span id="originalSize">0</span> KB <br> ➡️ <span id="compressedSize">0</span> KB
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="dashboard-card">
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">📊</span>
+                    Performance Metrics
+                </h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Average RTT</p>
+                        <p id="averageRtt" class="stat-value">0 ms</p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Total RTT</p>
+                        <p id="totalRtt" class="stat-value">0 ms</p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Avg Throughput</p>
+                        <p id="avgThroughput" class="stat-value">0 KB/s</p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Packet Loss Rate</p>
+                        <p id="packetLossRate" class="stat-value">0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Path Statistics - Now part of the 3-column grid -->
+            <div class="dashboard-card">
+                <h2 class="card-title flex items-center">
+                    <span class="mr-3">🛣️</span>
+                    Path Statistics
+                </h2>
+                <div class="space-y-8">
+                    <div class="path-stat group">
+                        <div class="flex justify-between mb-3">
+                            <h3 class="text-sm font-medium text-teal-400 group-hover:text-blue-300">Path 1</h3>
+                            <p id="path1Stats" class="text-sm font-medium">0/0 packets (0%)</p>
+                        </div>
+                        <div class="progress-bar group-hover:bg-opacity-75 transition-all">
+                            <div id="path1Progress" class="progress-fill bg-blue-500"></div>
+                        </div>
+                    </div>
+                    <div class="path-stat group">
+                        <div class="flex justify-between mb-3">
+                            <h3 class="text-sm font-medium text-teal-400 group-hover:text-gray-300">Path 2</h3>
+                            <p id="path2Stats" class="text-sm font-medium">0/0 packets (0%)</p>
+                        </div>
+                        <div class="progress-bar group-hover:bg-opacity-75 transition-all">
+                            <div id="path2Progress" class="progress-fill bg-teal-500"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Timeline Section HTML -->
+        <div class="dashboard-card mb-10">
+            <h2 class="card-title flex items-center">
+                <span class="mr-3">⏱️</span>
+                Packet Timeline
+            </h2>
+            <canvas id="packetTimelineChart"></canvas>
+        </div>
+
+        <!-- Enhanced Session History -->
+        <div class="dashboard-card mb-10">
+            <h2 class="card-title flex items-center">
+                <span class="mr-3">📜</span>
+                Session History
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="session-table">
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Total Packets</th>
+                            <th>Success Rate</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionHistory">
+                        <!-- Dynamic session history here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
