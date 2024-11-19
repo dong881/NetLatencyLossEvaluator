@@ -158,6 +158,10 @@ function updatePathStats(pathStats) {
     });
 }
 
+// Variables to store the current position for each path
+let path1CurrentPosition = 0;
+let path2CurrentPosition = 0;
+let ackCurrentPosition = 0;
 function updateTimeline(stats) {
     const path1Timeline = document.getElementById('path1Timeline');
     const path2Timeline = document.getElementById('path2Timeline');
@@ -167,12 +171,6 @@ function updateTimeline(stats) {
     const globalStartTime = Math.min(...stats.packets.map(p => p.timestamp));
     const endTime = Math.max(...stats.packets.map(p => p.timestamp));
     const totalDuration = endTime - globalStartTime;
-    
-    // Define timeline display width (adjust as needed)
-    const TIMELINE_WIDTH = 10; // pixels
-    
-    // Calculate scaling factor
-    const timeToPixelRatio = TIMELINE_WIDTH / totalDuration;
     
     // Sort packets by timestamp
     const sortedPackets = [...stats.packets].sort((a, b) => a.timestamp - b.timestamp);
@@ -186,32 +184,32 @@ function updateTimeline(stats) {
 
     sortedPackets.forEach(packet => {
         const packetId = `${packet.path || 'ack'}-${packet.timestamp}`;
+        const path = packet.type === 'acked' ? 'ack' : packet.path;
         
-        // Skip if packet already exists
-        if (packet.type === 'acked' && existingPackets.ack.has(packetId)) return;
-        if (packet.path === 'path1' && existingPackets.path1.has(packetId)) return;
-        if (packet.path === 'path2' && existingPackets.path2.has(packetId)) return;
+        if (existingPackets[path].has(packetId)) return;
 
         const packetEl = createPacketElement(packet);
         packetEl.dataset.packetId = packetId;
         
-        // Calculate position using the new scaling factor
-        console.log('Global Start Time:', globalStartTime,'- Packet Time:', packet.timestamp, '= Relative Time:', packet.timestamp - globalStartTime);
-        const relativeTime = packet.timestamp - globalStartTime;
-        const position = relativeTime * timeToPixelRatio;
-        packetEl.style.marginLeft = `${position}px`;
+        // Calculate the absolute left position
+        const absoluteLeftPosition = (packet.timestamp - globalStartTime) / totalDuration * 100;
+
+        // Determine the current position for the path
+        let timeline;
+        if (path === 'ack') {
+            timeline = ackTimeline;
+        } else if (path === 'path1') {
+            timeline = path1Timeline;
+        } else {
+            timeline = path2Timeline;
+        }
+
+        // Set the absolute left position
+        packetEl.style.position = 'absolute';
+        packetEl.style.left = `${absoluteLeftPosition}%`;
 
         // Append to appropriate timeline
-        if (packet.type === 'acked') {
-            console.log('Global Start Time:', globalStartTime);
-            console.log('Relative Time:', relativeTime);
-            console.log('Position:', position);
-            ackTimeline.appendChild(packetEl);
-        } else if (packet.path === 'path1') {
-            path1Timeline.appendChild(packetEl);
-        } else {
-            path2Timeline.appendChild(packetEl);
-        }
+        timeline.appendChild(packetEl);
     });
 
     // Clean up old packets
