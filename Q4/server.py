@@ -28,7 +28,7 @@ class UDPServerMonitor:
             'transmission': {
                 'current_run': 0,
                 'total_runs': 0,
-                'status': 'idle'  # idle, running, completed
+                'status': 'idle'  # idle, running
             },
             'performance': {
                 'total_rtt': 0,
@@ -169,6 +169,11 @@ class UDPServer:
         @app.route('/api/transmission/toggle', methods=['POST'])
         def toggle_transmission():
             if not self.current_transmission or not self.current_transmission.is_alive():
+                self.monitor.record_event('transmission_status',
+                    current_run=0,
+                    total_runs=0,
+                    status='running'
+                )
                 self.start_new_session()
                 self.current_transmission = threading.Thread(
                     target=self.send_data,
@@ -176,11 +181,16 @@ class UDPServer:
                     daemon=True
                 )
                 self.current_transmission.start()
-                return jsonify({'status': 'started', 'session_id': self.current_session_id})
+                return jsonify({'status': 'running', 'session_id': self.current_session_id})
             else:
+                self.monitor.record_event('transmission_status',
+                    current_run=0,
+                    total_runs=0,
+                    status='idle'
+                )
                 self.current_transmission.stop()
                 self.reset_stats()
-                return jsonify({'status': 'stopping'})
+                return jsonify({'status': 'idle'})
 
         def run_flask():
             app.run(host='0.0.0.0', port=8080, threaded=True)
@@ -331,6 +341,11 @@ class UDPServer:
         print(f"Average Throughput in {runs_completed} runs: {total_throughput / runs_completed:.2f} KB/s")
         print(f"Average Packet Loss Rate: {(total_packet_loss_rate / runs_completed) * 100:.2f}% packets/sequence")
         print(f"Total Packet Loss: {total_packet_loss} packets")
+        self.monitor.record_event('transmission_status',
+            current_run=runTimes,
+            total_runs=runTimes,
+            status='idle'
+        )
 
 if __name__ == "__main__":
     # Create static folder if it doesn't exist

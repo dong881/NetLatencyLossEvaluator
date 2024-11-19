@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initial stats fetch
-    fetchStats();
+    // fetchStats();
     const themeToggle = document.getElementById('theme-toggle');
     
     // Check saved theme
@@ -52,7 +52,7 @@ async function startTransmission() {
         
         const data = await response.json();
         
-        if (data.status === 'started') {
+        if (data.status === 'running') {
             isTransmitting = true;
             currentSessionId = data.session_id;
             toggleBtn.textContent = 'Stop Transmission';
@@ -69,7 +69,7 @@ async function stopTransmission() {
         const response = await fetch('/api/transmission/toggle', { method: 'POST' });
         const data = await response.json();
         
-        if (data.status === 'stopping') {
+        if (data.status === 'idle') {
             isTransmitting = false;
             toggleBtn.textContent = 'Start Transmission';
             toggleBtn.classList.remove('active');
@@ -96,6 +96,7 @@ async function fetchStats() {
     try {
         const response = await fetch('/api/stats');
         const stats = await response.json();
+        console.log(stats.transmission.status);
         updateUI(stats);
     } catch (error) {
         console.error('Error fetching stats:', error);
@@ -146,6 +147,27 @@ function updateStatus(stats) {
     document.getElementById('path2Stats').textContent = 
         `${path2.success}/${path2.packets} packets (${path2SuccessRate}%)`;
     document.getElementById('path2Progress').style.width = `${path2SuccessRate}%`;
+    
+    console.log(stats.transmission.status);
+    switch (stats.transmission.status) {
+        case 'idle':
+            isTransmitting = false;
+            toggleBtn.textContent = 'Start Transmission';
+            toggleBtn.classList.remove('active');
+            stopPeriodicUpdates();
+            break;
+            
+        case 'running':
+            isTransmitting = true;
+            toggleBtn.textContent = 'Stop Transmission';
+            toggleBtn.classList.add('active');
+            if (!updateInterval) {
+                startPeriodicUpdates();
+            }
+            break;
+        default:
+            console.warn('Unknown transmission status:', stats.transmission.status);
+    }
 }
 
 function updatePathStats(pathStats) {
