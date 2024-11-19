@@ -184,6 +184,34 @@ const customLabelsPlugin = {
 // 註冊插件
 Chart.register(customLabelsPlugin);
 
+// 檔案大小格式化函數
+function formatFileSize(bytes) {
+    console.log(bytes);
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let size = bytes;
+    let unitIndex = 0;
+    
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+// 時間格式化函數
+function formatDate(date) {
+    return new Date(date).toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+
 function updateTimeline(stats) {
     const ctx = document.getElementById('packetTimelineChart').getContext('2d');
 
@@ -215,14 +243,14 @@ function updateTimeline(stats) {
         }));
 
     // 圖表更新邏輯保持不變
-    let pointRadiussize = 28;
     if (window.packetTimelineChart && window.packetTimelineChart.data && window.packetTimelineChart.data.datasets) {
         window.packetTimelineChart.data.datasets[0].data = path1Data;
         window.packetTimelineChart.data.datasets[1].data = path2Data;
         window.packetTimelineChart.data.datasets[2].data = ackData;
         window.packetTimelineChart.update();
     } else {
-        let pointHoverRadiussize = 16;
+        let pointRadiussize = 24;
+        let pointHoverRadiussize = 22;
         window.packetTimelineChart = new Chart(ctx, {
             type: 'scatter',
             data: {
@@ -264,11 +292,48 @@ function updateTimeline(stats) {
             },
             plugins: {
                 title: {
-                display: true,
-                text: 'Packet Timeline'
+                    display: true,
+                    text: 'Packet Timeline'
                 },
                 tooltip: {
-                // enabled: false // 關閉tooltip因為已經直接顯示序號
+                    enabled: true, // 確保啟用 tooltip
+                    mode: 'point', // 設定為點模式
+                    callbacks: {
+                        label: function(context) {
+                            try {
+                                const point = context.raw;
+                                if (!point) return null;
+                
+                                const time = new Date(point.x).toLocaleString('zh-TW', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    millisecond: '3-digit'
+                                });
+                                
+                                // 安全地查找封包
+                                const packet = sortedPackets.find(p => 
+                                    p.sequence === point.seqNum && 
+                                    ((context.datasetIndex === 0 && p.path === 'path1') ||
+                                     (context.datasetIndex === 1 && p.path === 'path2') ||
+                                     (context.datasetIndex === 2 && p.type === 'acked'))
+                                );
+                                
+                                if (!packet) return [`序號: ${point.seqNum}`, `時間: ${time}`];
+                                
+                                const size = packet.size ? formatFileSize(packet.size) : 'N/A';
+                                
+                                return [
+                                    `序號: ${point.seqNum}`,
+                                    `時間: ${time}`,
+                                    `大小: ${size}`
+                                ];
+                            } catch (error) {
+                                console.error('Tooltip error:', error);
+                                return ['資料載入錯誤'];
+                            }
+                        }
+                    }
                 },
             },
             scales: {
