@@ -222,7 +222,7 @@ function updateTimeline(stats) {
         .filter(packet => packet.path === 'path1')
         .map(packet => ({
             x: packet.timestamp,
-            y: 0.95,
+            y: 0.99,
             seqNum: packet.sequence
         }));
     
@@ -238,7 +238,7 @@ function updateTimeline(stats) {
         .filter(packet => packet.type === 'acked')
         .map(packet => ({
             x: packet.timestamp,
-            y: 1.05,
+            y: 1.01,
             seqNum: packet.sequence
         }));
 
@@ -352,13 +352,13 @@ function updateTimeline(stats) {
                         display: true,
                         text: 'Path'
                     },
-                    min: 0.9,
-                    max: 1.1,
+                    min: 0.989,
+                    max: 1.011,
                     ticks: {
                         callback: function(value) {
-                        if (value === 0.95) return 'Path 1';
+                        if (value === 0.99) return 'Path 1';
                         if (value === 1) return 'Path 2';
-                        if (value === 1.05) return 'ACKs';
+                        if (value === 1.01) return 'ACKs';
                         return '';
                         }
                     }
