@@ -222,6 +222,7 @@ function updateTimeline(stats) {
         window.packetTimelineChart.data.datasets[2].data = ackData;
         window.packetTimelineChart.update();
     } else {
+        let pointHoverRadiussize = 16;
         window.packetTimelineChart = new Chart(ctx, {
             type: 'scatter',
             data: {
@@ -232,7 +233,7 @@ function updateTimeline(stats) {
                 backgroundColor: 'rgba(75, 192, 192, 0.8)',
                 pointStyle: 'rectRounded',
                 pointRadius: pointRadiussize,
-                pointHoverRadius: 18,
+                pointHoverRadius: pointHoverRadiussize,
                 showLine: false
                 },
                 {
@@ -241,7 +242,7 @@ function updateTimeline(stats) {
                 backgroundColor: 'rgba(153, 102, 255, 0.8)',
                 pointStyle: 'rectRounded',
                 pointRadius: pointRadiussize,
-                pointHoverRadius: 18,
+                pointHoverRadius: pointHoverRadiussize,
                 showLine: false
                 },
                 {
@@ -250,7 +251,7 @@ function updateTimeline(stats) {
                 backgroundColor: 'rgba(255, 159, 64, 0.8)',
                 pointStyle: 'rectRounded',
                 pointRadius: pointRadiussize,
-                pointHoverRadius: 18,
+                pointHoverRadius: pointHoverRadiussize,
                 showLine: false
                 }
             ]
@@ -258,7 +259,7 @@ function updateTimeline(stats) {
             options: {
             responsive: true,
             animation: {
-                duration: 1000,
+                duration: 300,
                 easing: 'easeOutQuart'
             },
             plugins: {
@@ -267,33 +268,35 @@ function updateTimeline(stats) {
                 text: 'Packet Timeline'
                 },
                 tooltip: {
-                enabled: false // 關閉tooltip因為已經直接顯示序號
+                // enabled: false // 關閉tooltip因為已經直接顯示序號
                 },
             },
             scales: {
                 x: {
-                display: true,
-                title: {
                     display: true,
-                    text: 'Timestamp'
-                }
+                    title: {
+                        display: true,
+                        text: 'Timestamp'
+                    },
+                    min: sortedPackets[0].timestamp - 0.1,
+                    max: sortedPackets[0].timestamp + 2.5
                 },
                 y: {
-                display: true,
-                title: {
                     display: true,
-                    text: 'Path'
-                },
-                min: 0.9,
-                max: 1.1,
-                ticks: {
-                    callback: function(value) {
-                    if (value === 0.95) return 'Path 1';
-                    if (value === 1) return 'Path 2';
-                    if (value === 1.05) return 'ACKs';
-                    return '';
+                    title: {
+                        display: true,
+                        text: 'Path'
+                    },
+                    min: 0.9,
+                    max: 1.1,
+                    ticks: {
+                        callback: function(value) {
+                        if (value === 0.95) return 'Path 1';
+                        if (value === 1) return 'Path 2';
+                        if (value === 1.05) return 'ACKs';
+                        return '';
+                        }
                     }
-                }
                 }
             }
             },
