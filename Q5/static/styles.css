@@ -55,6 +55,27 @@ body {
     transform: translateY(-2px);
 }
 
+/* 修改 Session History 卡片標題區域樣式 */
+.dashboard-card .card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+/* 清除按鈕樣式 */
+#clearHistoryBtn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    transition: all 0.3s ease;
+}
+
+#clearHistoryBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.3);
+}
+
 /* Enhance dark theme card visibility */
 .dark-theme .dashboard-card {
     background-color: var(--card-bg);
@@ -76,6 +97,21 @@ body {
 .dark-theme .stat-value {
     color: #ffffff;  /* Pure white for important values */
     text-shadow: 0 0 1px rgba(255, 255, 255, 0.1);  /* Subtle text shadow */
+}
+
+.chart-container {
+    position: relative;
+    height: 400px;  /* 固定高度 */
+    width: 100%;    /* 最大寬度 */
+    margin: 1rem 0;
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.dashboard-card .chart-container {
+    margin-top: 1rem;
+    padding: 0.5rem;
 }
 
 /* Typography */

@@ -9,8 +9,6 @@ from datetime import datetime
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 import os
-import random
-
 
 def compress_with_lzma(data: str) -> bytes:
     return lzma.compress(data.encode("utf-8"))
@@ -51,7 +49,7 @@ class UDPServerMonitor:
             'transmission': {
                 'current_run': 0,
                 'total_runs': 0,
-                'status': 'idle'  # idle, running
+                'status': 'idle'  # idle, running, compelted
             },
             'performance': {
                 'total_rtt': 0,
@@ -156,17 +154,77 @@ class UDPServer:
         self.min_interval = 0.1
         self.last_send_time = 0
         self.total_sequences = 0
-        self.last_five_start = 0
+        self.last_path1_start = 0
         self.total_retransmissions = 0
         self.monitor = UDPServerMonitor()
         self.running = True
         self.current_transmission = None
         self._start_web_server()
         self.current_session_id = None
+        self.log_file = 'static/transmission_history.json'
+        self.ensure_log_file()
+        
+    def ensure_log_file(self):
+        if not os.path.exists('static'):
+            os.makedirs('static')
+        if not os.path.exists(self.log_file):
+            with open(self.log_file, 'w') as f:
+                json.dump([], f)
+
+    def log_session(self, stats):
+        try:
+            with open(self.log_file, 'r') as f:
+                history = json.load(f)
+                
+            session_log = {
+                'timestamp': time.time(),
+                'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'total_rtt': stats['total_rtt'],
+                'total_packets': 100000,
+                'throughput': stats['total_throughput'],
+                'packet_loss_rate': stats['total_packet_loss_rate']
+            }
+            
+            history.append(session_log)
+            
+            with open(self.log_file, 'w') as f:
+                json.dump(history, f)
+                
+        except Exception as e:
+            print(f"Error logging session: {e}")
+
+    def clear_history(self):
+        try:
+            with open(self.log_file, 'w') as f:
+                json.dump([], f)
+            return True
+        except Exception as e:
+            print(f"Error clearing history: {e}")
+            return False
+        try:
+            with open(self.log_file, 'r') as f:
+                history = json.load(f)
+                
+            if not history:
+                return
+                
+            total_rtt = sum(session['total_rtt'] for session in history)
+            total_throughput = sum(session['throughput'] for session in history)
+            total_loss_rate = sum(session['packet_loss_rate'] for session in history)
+            count = len(history)
+            
+            self.monitor.record_event('historical_averages', 
+                average_rtt=total_rtt/count,
+                average_throughput=total_throughput/count,
+                average_packet_loss_rate=total_loss_rate/count
+            )
+            
+        except Exception as e:
+            print(f"Error updating historical averages: {e}")
         
     def reset_stats(self):
         self.total_sequences = 0
-        self.last_five_start = 0
+        self.last_path1_start = 0
         self.total_retransmissions = 0
         self.last_send_time = 0
         self.running = True
@@ -215,6 +273,20 @@ class UDPServer:
                 self.reset_stats()
                 return jsonify({'status': 'idle'})
 
+        @app.route('/api/history', methods=['GET'])
+        def get_history():
+            try:
+                with open(self.log_file, 'r') as f:
+                    return jsonify(json.load(f))
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/history/clear', methods=['POST']) 
+        def clear_history():
+            if self.clear_history():
+                return jsonify({'status': 'success'})
+            return jsonify({'status': 'error'}), 500
+
         def run_flask():
             app.run(host='0.0.0.0', port=8080, threaded=True)
 
@@ -248,7 +320,7 @@ class UDPServer:
             time.sleep(self.min_interval - elapsed_since_last_send)
 
     def get_proxy_address(self, sequence_number: int) -> tuple:
-        if sequence_number >= self.last_five_start:
+        if sequence_number >= self.last_path1_start:
             return self.proxy_path1
         return self.proxy_path2
 
@@ -309,17 +381,12 @@ class UDPServer:
             full_data = generate_packet_data(1, 100000)
             if run == 0:
                 print(f"Original data size: {len(full_data)} bytes")
-            
-            compressed_data = split_and_compress_data(full_data)
+            compressed_data = compress_with_lzma(full_data)
             with self.ack_lock:
                 self.ack_received.clear()
-            
             batch_size = 1020
-            total_sequences_qos1 = (len(compressed_data["QoS1"]) + batch_size - 1) // batch_size
-            total_sequences_qos2 = (len(compressed_data["QoS2"]) + batch_size - 1) // batch_size
-            self.total_sequences = total_sequences_qos1 + total_sequences_qos2
-            self.last_five_start = max(0, self.total_sequences - 5)
-            
+            self.total_sequences = (len(compressed_data) + batch_size - 1) // batch_size
+            self.last_path1_start = max(0, self.total_sequences - 4)
             if run == 0:
                 print(f"Compressed QoS1 data size: {len(compressed_data['QoS1'])} bytes")
                 print(f"Compressed QoS2 data size: {len(compressed_data['QoS2'])} bytes")
@@ -372,6 +439,17 @@ class UDPServer:
                 total_packet_loss_rate=total_packet_loss_rate,
                 average_packet_loss_rate=total_packet_loss_rate/runs_completed
             )
+            self.monitor.record_event('transmission_status',
+                current_run=run,
+                total_runs=runTimes,
+                status='compelted'
+            )
+            # 在傳輸結束時記錄session
+            self.log_session({
+                'total_rtt': total_rtt,
+                'total_throughput': total_throughput,
+                'total_packet_loss_rate': total_packet_loss_rate
+            })
 
         print("\nFinal Statistics:")
         print(f"Average RTT in {runs_completed} runs: {total_rtt / runs_completed:.2f} seconds")
