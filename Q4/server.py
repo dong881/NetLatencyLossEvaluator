@@ -28,7 +28,7 @@ class UDPServerMonitor:
             'transmission': {
                 'current_run': 0,
                 'total_runs': 0,
-                'status': 'idle'  # idle, running
+                'status': 'idle'  # idle, running, compelted
             },
             'performance': {
                 'total_rtt': 0,
@@ -334,6 +334,11 @@ class UDPServer:
                 average_throughput=total_throughput/runs_completed,
                 total_packet_loss_rate=total_packet_loss_rate,
                 average_packet_loss_rate=total_packet_loss_rate/runs_completed
+            )
+            self.monitor.record_event('transmission_status',
+                current_run=run,
+                total_runs=runTimes,
+                status='compelted'
             )
 
         print("\nFinal Statistics:")

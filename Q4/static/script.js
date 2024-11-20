@@ -14,6 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add event listeners
     toggleBtn.addEventListener('click', async () => {
         if (!isTransmitting) {
+            if (window.packetTimelineChart && typeof window.packetTimelineChart.destroy === 'function') {
+                window.packetTimelineChart.destroy();
+                window.packetTimelineChart = null;
+            }
             await startTransmission();
         } else {
             await stopTransmission();
@@ -163,6 +167,12 @@ function updateStatus(stats) {
             toggleBtn.classList.add('active');
             if (!updateInterval) {
                 startPeriodicUpdates();
+            }
+            break;
+        case 'comleted':
+            if (window.packetTimelineChart && typeof window.packetTimelineChart.destroy === 'function') {
+                window.packetTimelineChart.destroy();
+                window.packetTimelineChart = null;
             }
             break;
         default:
