@@ -86,14 +86,39 @@ async function fetchStats() {
     // }
 }
 
+// 修改 updateHistory 函數，增加處理空資料的情況
 function updateHistory(history) {
     const tbody = document.getElementById('sessionHistory');
     tbody.innerHTML = '';
     
-    history.forEach((session, index) => {
+    if (!history || history.length === 0) {
+        // 如果沒有資料，顯示一個空行提示並清空平均值
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `
+            <td colspan="5" class="text-center text-gray-500 py-4">
+                暫無歷史記錄
+            </td>
+        `;
+        tbody.appendChild(emptyRow);
+        
+        // 清空平均值顯示
+        document.getElementById('averageRtt').textContent = '0.00 ms';
+        return;
+    }
+    
+    // 計算歷史平均值
+    const totalRtt = history.reduce((sum, session) => sum + session.total_rtt, 0);
+    const averageRtt = totalRtt / history.length;
+    
+    // 更新平均 RTT 顯示
+    document.getElementById('averageRtt').textContent = `${averageRtt.toFixed(2)} ms`;
+    
+    // 原有的歷史記錄顯示邏輯
+    const reversedHistory = [...history].reverse();
+    reversedHistory.forEach((session, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>${index + 1}</td>
+            <td>${history.length - index}</td>
             <td>${session.date}</td>
             <td>${session.total_rtt.toFixed(2)} ms</td>
             <td>${session.total_packets}</td>
@@ -109,25 +134,43 @@ function updateUI(stats) {
 }
 
 function updateStatus(stats) {
+    // 確保安全地讀取和顯示數值
+    const safeGetNumber = (obj, ...path) => {
+        let current = obj;
+        for (const key of path) {
+            if (current == null || typeof current !== 'object') return 0;
+            current = current[key];
+        }
+        return typeof current === 'number' ? current : 0;
+    };
+
     // Update Compression Stats
-    document.getElementById('originalSize').textContent = (stats.compression.original_size / 1024).toFixed(2);
-    document.getElementById('compressedSize').textContent = (stats.compression.compressed_size / 1024).toFixed(2);
-    document.getElementById('compressionRatio').textContent = `${stats.compression.ratio.toFixed(1)}%`;
+    document.getElementById('originalSize').textContent = 
+        (safeGetNumber(stats, 'compression', 'original_size') / 1024).toFixed(2);
+    document.getElementById('compressedSize').textContent = 
+        (safeGetNumber(stats, 'compression', 'compressed_size') / 1024).toFixed(2);
+    document.getElementById('compressionRatio').textContent = 
+        `${safeGetNumber(stats, 'compression', 'ratio').toFixed(1)}%`;
 
     // Update Transmission Stats
-    document.getElementById('currentRun').textContent = stats.transmission.current_run;
-    document.getElementById('totalRuns').textContent = stats.transmission.total_runs;
-    document.getElementById('status').textContent = stats.transmission.status;
+    document.getElementById('currentRun').textContent = 
+        safeGetNumber(stats, 'transmission', 'current_run');
+    document.getElementById('totalRuns').textContent = 
+        safeGetNumber(stats, 'transmission', 'total_runs');
+    document.getElementById('status').textContent = 
+        stats?.transmission?.status || 'idle';
 
     // Update Performance Metrics
-    document.getElementById('averageRtt').textContent = `${stats.performance.average_rtt.toFixed(2)} ms`;
-    document.getElementById('totalRtt').textContent = `${stats.performance.total_rtt.toFixed(2)} ms`;
-    document.getElementById('avgThroughput').textContent = `${stats.performance.average_throughput.toFixed(2)} KB/s`;
-    document.getElementById('packetLossRate').textContent = `${stats.performance.average_packet_loss_rate.toFixed(1)}%`;
+    document.getElementById('totalRtt').textContent = 
+        `${safeGetNumber(stats, 'performance', 'total_rtt').toFixed(2)} ms`;
+    document.getElementById('avgThroughput').textContent = 
+        `${safeGetNumber(stats, 'performance', 'average_throughput').toFixed(2)} KB/s`;
+    document.getElementById('packetLossRate').textContent = 
+        `${safeGetNumber(stats, 'performance', 'average_packet_loss_rate').toFixed(1)}%`;
 
     // Update Path Statistics
-    const path1 = stats.paths.path1;
-    const path2 = stats.paths.path2;
+    const path1 = stats?.paths?.path1 || { packets: 0, success: 0 };
+    const path2 = stats?.paths?.path2 || { packets: 0, success: 0 };
 
     const path1SuccessRate = path1.packets > 0 ? (path1.success / path1.packets * 100).toFixed(1) : '0.0';
     const path2SuccessRate = path2.packets > 0 ? (path2.success / path2.packets * 100).toFixed(1) : '0.0';
@@ -139,32 +182,34 @@ function updateStatus(stats) {
     document.getElementById('path2Stats').textContent = 
         `${path2.success}/${path2.packets} packets (${path2SuccessRate}%)`;
     document.getElementById('path2Progress').style.width = `${path2SuccessRate}%`;
-    
-    console.log(stats.transmission.status);
-    switch (stats.transmission.status) {
-        case 'idle':
-            isTransmitting = false;
-            toggleBtn.textContent = 'Start Transmission';
-            toggleBtn.classList.remove('active');
-            stopPeriodicUpdates();
-            break;
-            
-        case 'running':
-            isTransmitting = true;
-            toggleBtn.textContent = 'Stop Transmission';
-            toggleBtn.classList.add('active');
-            if (!updateInterval) {
-                startPeriodicUpdates();
-            }
-            break;
-        case 'comleted':
-            if (window.packetTimelineChart && typeof window.packetTimelineChart.destroy === 'function') {
-                window.packetTimelineChart.destroy();
-                window.packetTimelineChart = null;
-            }
-            break;
-        default:
-            console.warn('Unknown transmission status:', stats.transmission.status);
+
+    // Handle transmission status
+    if (stats?.transmission?.status) {
+        switch (stats.transmission.status) {
+            case 'idle':
+                isTransmitting = false;
+                toggleBtn.textContent = 'Start Transmission';
+                toggleBtn.classList.remove('active');
+                stopPeriodicUpdates();
+                break;
+                
+            case 'running':
+                isTransmitting = true;
+                toggleBtn.textContent = 'Stop Transmission';
+                toggleBtn.classList.add('active');
+                if (!updateInterval) {
+                    startPeriodicUpdates();
+                }
+                break;
+            case 'completed':
+                if (window.packetTimelineChart && typeof window.packetTimelineChart.destroy === 'function') {
+                    window.packetTimelineChart.destroy();
+                    window.packetTimelineChart = null;
+                }
+                break;
+            default:
+                console.warn('Unknown transmission status:', stats.transmission.status);
+        }
     }
 }
 
@@ -417,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 新增清除歷史按鈕事件監聽
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     if (clearHistoryBtn) {
+        // 修改清除歷史按鈕的事件處理
         clearHistoryBtn.addEventListener('click', async () => {
             if (confirm('確定要清除所有歷史紀錄嗎？')) {
                 try {
@@ -424,8 +470,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST'
                     });
                     if (response.ok) {
+                        // 直接更新為空列表，不需等待 fetchStats
+                        updateHistory([]);
                         alert('歷史紀錄已清除');
-                        fetchStats(); // 更新顯示
                     }
                 } catch (error) {
                     console.error('Failed to clear history:', error);
@@ -462,4 +509,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 可選的初始資料載入
     // fetchStats();
+    // 建立初始資料載入函式
+    async function loadInitialData() {
+        try {
+            const [historyResponse, statsResponse] = await Promise.all([
+                fetch('/api/history'),
+                fetch('/api/stats')
+            ]);
+
+            if (historyResponse.ok) {
+                const history = await historyResponse.json();
+                updateHistory(history);
+            } else {
+                console.error('Failed to load initial history');
+            }
+            
+            if (statsResponse.ok) {
+                const stats = await statsResponse.json();
+                updateUI(stats);
+            }
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+        }
+    }
+
+    // 呼叫初始資料載入函式
+    loadInitialData();
 });

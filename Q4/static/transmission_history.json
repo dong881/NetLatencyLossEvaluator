@@ -1,1 +1,1 @@
-[{"timestamp": 1732080047.247288, "date": "2024-11-20 13:20:47", "total_rtt": 3.166609764099121, "total_packets": 21, "throughput": 6.371413831517655, "packet_loss_rate": 0.23809523809523808}, {"timestamp": 1732080051.8588576, "date": "2024-11-20 13:20:51", "total_rtt": 2.7271201610565186, "total_packets": 21, "throughput": 7.398200320657548, "packet_loss_rate": 0.0}, {"timestamp": 1732080056.6328027, "date": "2024-11-20 13:20:56", "total_rtt": 2.6878151893615723, "total_packets": 21, "throughput": 7.5063870945651905, "packet_loss_rate": 0.0}]
+[]

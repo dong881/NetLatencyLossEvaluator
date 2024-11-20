@@ -75,16 +75,16 @@
                 </h2>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="stat-box group">
-                        <p class="stat-label group-hover:text-blue-400">Average RTT</p>
-                        <p id="averageRtt" class="stat-value">0 ms</p>
-                    </div>
-                    <div class="stat-box group">
-                        <p class="stat-label group-hover:text-blue-400">Total RTT</p>
+                        <p class="stat-label group-hover:text-blue-400">Current RTT</p>
                         <p id="totalRtt" class="stat-value">0 ms</p>
                     </div>
                     <div class="stat-box group">
-                        <p class="stat-label group-hover:text-blue-400">Avg Throughput</p>
+                        <p class="stat-label group-hover:text-blue-400">Current Throughput</p>
                         <p id="avgThroughput" class="stat-value">0 KB/s</p>
+                    </div>
+                    <div class="stat-box group">
+                        <p class="stat-label group-hover:text-blue-400">Average RTT</p>
+                        <p id="averageRtt" class="stat-value">0 ms</p>
                     </div>
                     <div class="stat-box group">
                         <p class="stat-label group-hover:text-blue-400">Packet Loss Rate</p>
@@ -125,17 +125,24 @@
         <!-- Timeline Section HTML -->
         <div class="dashboard-card mb-10">
             <h2 class="card-title flex items-center">
-                <span class="mr-3">⏱️</span>
-                Packet Timeline
+                <div class="flex items-center">
+                    <span class="mr-3">⏱️</span>
+                    Packet Timeline
+                </div>
             </h2>
             <canvas id="packetTimelineChart"></canvas>
         </div>
 
         <!-- Enhanced Session History -->
         <div class="dashboard-card mb-10">
-            <h2 class="card-title flex items-center">
-                <span class="mr-3">📜</span>
-                Session History
+            <h2 class="card-title">
+                <div class="flex items-center">
+                    <span class="mr-3">📜</span>
+                    Session History
+                </div>
+                <button id="clearHistoryBtn" class="transmission-btn">
+                    清除歷史紀錄
+                </button>
             </h2>
             <div class="overflow-x-auto">
                 <table class="session-table">
@@ -152,12 +159,6 @@
                         <!-- Dynamic session history here -->
                     </tbody>
                 </table>
-            </div>
-            <!-- 在 session history table 後面新增清除按鈕 -->
-            <div class="flex justify-end mb-4">
-                <button id="clearHistoryBtn" class="transmission-btn bg-red-500 hover:bg-red-600">
-                    清除歷史紀錄
-                </button>
             </div>
         </div>
     </div>

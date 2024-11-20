@@ -159,7 +159,7 @@ class UDPServer:
                 'timestamp': time.time(),
                 'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'total_rtt': stats['total_rtt'],
-                'total_packets': self.total_sequences,
+                'total_packets': 100000,
                 'throughput': stats['total_throughput'],
                 'packet_loss_rate': stats['total_packet_loss_rate']
             }
@@ -168,9 +168,6 @@ class UDPServer:
             
             with open(self.log_file, 'w') as f:
                 json.dump(history, f)
-                
-            # 更新統計資料
-            self.update_historical_averages()
                 
         except Exception as e:
             print(f"Error logging session: {e}")
@@ -183,8 +180,6 @@ class UDPServer:
         except Exception as e:
             print(f"Error clearing history: {e}")
             return False
-
-    def update_historical_averages(self):
         try:
             with open(self.log_file, 'r') as f:
                 history = json.load(f)
