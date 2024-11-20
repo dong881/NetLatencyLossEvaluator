@@ -140,6 +140,71 @@ class UDPServer:
         self.current_transmission = None
         self._start_web_server()
         self.current_session_id = None
+        self.log_file = 'static/transmission_history.json'
+        self.ensure_log_file()
+        
+    def ensure_log_file(self):
+        if not os.path.exists('static'):
+            os.makedirs('static')
+        if not os.path.exists(self.log_file):
+            with open(self.log_file, 'w') as f:
+                json.dump([], f)
+
+    def log_session(self, stats):
+        try:
+            with open(self.log_file, 'r') as f:
+                history = json.load(f)
+                
+            session_log = {
+                'timestamp': time.time(),
+                'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'total_rtt': stats['total_rtt'],
+                'total_packets': self.total_sequences,
+                'throughput': stats['total_throughput'],
+                'packet_loss_rate': stats['total_packet_loss_rate']
+            }
+            
+            history.append(session_log)
+            
+            with open(self.log_file, 'w') as f:
+                json.dump(history, f)
+                
+            # 更新統計資料
+            self.update_historical_averages()
+                
+        except Exception as e:
+            print(f"Error logging session: {e}")
+
+    def clear_history(self):
+        try:
+            with open(self.log_file, 'w') as f:
+                json.dump([], f)
+            return True
+        except Exception as e:
+            print(f"Error clearing history: {e}")
+            return False
+
+    def update_historical_averages(self):
+        try:
+            with open(self.log_file, 'r') as f:
+                history = json.load(f)
+                
+            if not history:
+                return
+                
+            total_rtt = sum(session['total_rtt'] for session in history)
+            total_throughput = sum(session['throughput'] for session in history)
+            total_loss_rate = sum(session['packet_loss_rate'] for session in history)
+            count = len(history)
+            
+            self.monitor.record_event('historical_averages', 
+                average_rtt=total_rtt/count,
+                average_throughput=total_throughput/count,
+                average_packet_loss_rate=total_loss_rate/count
+            )
+            
+        except Exception as e:
+            print(f"Error updating historical averages: {e}")
         
     def reset_stats(self):
         self.total_sequences = 0
@@ -191,6 +256,20 @@ class UDPServer:
                 self.current_transmission.stop()
                 self.reset_stats()
                 return jsonify({'status': 'idle'})
+
+        @app.route('/api/history', methods=['GET'])
+        def get_history():
+            try:
+                with open(self.log_file, 'r') as f:
+                    return jsonify(json.load(f))
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+
+        @app.route('/api/history/clear', methods=['POST']) 
+        def clear_history():
+            if self.clear_history():
+                return jsonify({'status': 'success'})
+            return jsonify({'status': 'error'}), 500
 
         def run_flask():
             app.run(host='0.0.0.0', port=8080, threaded=True)
@@ -340,6 +419,12 @@ class UDPServer:
                 total_runs=runTimes,
                 status='compelted'
             )
+            # 在傳輸結束時記錄session
+            self.log_session({
+                'total_rtt': total_rtt,
+                'total_throughput': total_throughput,
+                'total_packet_loss_rate': total_packet_loss_rate
+            })
 
         print("\nFinal Statistics:")
         print(f"Average RTT in {runs_completed} runs: {total_rtt / runs_completed:.2f} seconds")

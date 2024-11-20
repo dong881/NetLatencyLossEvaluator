@@ -141,18 +141,23 @@
                 <table class="session-table">
                     <thead>
                         <tr>
-                            <th>Session ID</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
+                            <th>#</th>
+                            <th>Date</th>
+                            <th>Total RTT (ms)</th>
                             <th>Total Packets</th>
-                            <th>Success Rate</th>
-                            <th>Actions</th>
+                            <th>Packet Loss Rate</th>
                         </tr>
                     </thead>
                     <tbody id="sessionHistory">
                         <!-- Dynamic session history here -->
                     </tbody>
                 </table>
+            </div>
+            <!-- 在 session history table 後面新增清除按鈕 -->
+            <div class="flex justify-end mb-4">
+                <button id="clearHistoryBtn" class="transmission-btn bg-red-500 hover:bg-red-600">
+                    清除歷史紀錄
+                </button>
             </div>
         </div>
     </div>

@@ -4,42 +4,6 @@ let currentSessionId = null;
 let updateInterval = null;
 let toggleBtn, statusText, timeline, throughputChart, packetChart;
 
-// Move all DOM initialization into DOMContentLoaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize UI Elements
-    toggleBtn = document.getElementById('toggleBtn');
-    statusText = document.getElementById('statusText');
-    timeline = document.getElementById('packetTimeline');
-
-    // Add event listeners
-    toggleBtn.addEventListener('click', async () => {
-        if (!isTransmitting) {
-            if (window.packetTimelineChart && typeof window.packetTimelineChart.destroy === 'function') {
-                window.packetTimelineChart.destroy();
-                window.packetTimelineChart = null;
-            }
-            await startTransmission();
-        } else {
-            await stopTransmission();
-        }
-    });
-
-    // Initial stats fetch
-    // fetchStats();
-    const themeToggle = document.getElementById('theme-toggle');
-    
-    // Check saved theme
-    const savedTheme = localStorage.getItem('theme') || 'system';
-    applyTheme(savedTheme);
-    
-    themeToggle.addEventListener('click', () => {
-        const currentTheme = localStorage.getItem('theme') || 'system';
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        applyTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-    });
-});
-
 // Transmission Control
 async function startTransmission() {
     try {
@@ -96,14 +60,21 @@ function stopPeriodicUpdates() {
     }
 }
 
+// 在 fetchStats 函數中新增歷史資料的處理
 async function fetchStats() {
     try {
-        const response = await fetch('/api/stats');
-        const stats = await response.json();
-        console.log(stats.transmission.status);
+        const [statsResponse, historyResponse] = await Promise.all([
+            fetch('/api/stats'),
+            fetch('/api/history')
+        ]);
+        
+        const stats = await statsResponse.json();
+        const history = await historyResponse.json();
+        
         updateUI(stats);
+        updateHistory(history);
     } catch (error) {
-        console.error('Error fetching stats:', error);
+        console.error('Error fetching data:', error);
     }
 
     // {
@@ -113,6 +84,23 @@ async function fetchStats() {
     //     'paths': {'path1': {'packets', 'success'}, 'path2': {'packets', 'success'}},
     //     'packets': [{'sequence', 'timestamp', 'path', 'size', 'type', 'status'}]
     // }
+}
+
+function updateHistory(history) {
+    const tbody = document.getElementById('sessionHistory');
+    tbody.innerHTML = '';
+    
+    history.forEach((session, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${session.date}</td>
+            <td>${session.total_rtt.toFixed(2)} ms</td>
+            <td>${session.total_packets}</td>
+            <td>${(session.packet_loss_rate * 100).toFixed(2)}%</td>
+        `;
+        tbody.appendChild(row);
+    });
 }
 
 function updateUI(stats) {
@@ -418,3 +406,60 @@ function applyTheme(theme) {
         document.body.classList.add(`${theme}-theme`);
     }
 }
+
+// 修改 DOMContentLoaded 事件處理函式
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化其他 UI 元素
+    toggleBtn = document.getElementById('toggleBtn');
+    statusText = document.getElementById('statusText');
+    timeline = document.getElementById('packetTimeline');
+
+    // 新增清除歷史按鈕事件監聽
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', async () => {
+            if (confirm('確定要清除所有歷史紀錄嗎？')) {
+                try {
+                    const response = await fetch('/api/history/clear', {
+                        method: 'POST'
+                    });
+                    if (response.ok) {
+                        alert('歷史紀錄已清除');
+                        fetchStats(); // 更新顯示
+                    }
+                } catch (error) {
+                    console.error('Failed to clear history:', error);
+                    alert('清除失敗');
+                }
+            }
+        });
+    }
+
+    // 主要按鈕事件監聽
+    toggleBtn.addEventListener('click', async () => {
+        if (!isTransmitting) {
+            if (window.packetTimelineChart && typeof window.packetTimelineChart.destroy === 'function') {
+                window.packetTimelineChart.destroy();
+                window.packetTimelineChart = null;
+            }
+            await startTransmission();
+        } else {
+            await stopTransmission();
+        }
+    });
+
+    // 主題切換相關
+    const themeToggle = document.getElementById('theme-toggle');
+    const savedTheme = localStorage.getItem('theme') || 'system';
+    applyTheme(savedTheme);
+    
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = localStorage.getItem('theme') || 'system';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        applyTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
+
+    // 可選的初始資料載入
+    // fetchStats();
+});
