@@ -287,7 +287,7 @@ function updateTimeline(stats) {
         .filter(packet => packet.path === 'path1')
         .map(packet => ({
             x: packet.timestamp,
-            y: 0.99,
+            y: 1.005,
             seqNum: packet.sequence
         }));
     
@@ -303,7 +303,7 @@ function updateTimeline(stats) {
         .filter(packet => packet.type === 'acked')
         .map(packet => ({
             x: packet.timestamp,
-            y: 1.01,
+            y: 0.995,
             seqNum: packet.sequence
         }));
 
@@ -314,8 +314,8 @@ function updateTimeline(stats) {
         window.packetTimelineChart.data.datasets[2].data = ackData;
         window.packetTimelineChart.update();
     } else {
-        let pointRadiussize = 24;
-        let pointHoverRadiussize = 22;
+        let pointRadiussize = 26;
+        let pointHoverRadiussize = 24;
         window.packetTimelineChart = new Chart(ctx, {
             type: 'scatter',
             data: {
@@ -350,85 +350,89 @@ function updateTimeline(stats) {
             ]
             },
             options: {
-            responsive: true,
-            animation: {
-                duration: 300,
-                easing: 'easeOutQuart'
-            },
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Packet Timeline'
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 10,
+                        right: 20,
+                        bottom: 10,
+                        left: 20
+                    }
                 },
-                tooltip: {
-                    enabled: true, // 確保啟用 tooltip
-                    mode: 'point', // 設定為點模式
-                    callbacks: {
-                        label: function(context) {
-                            try {
-                                const point = context.raw;
-                                if (!point) return null;
-                
-                                const time = new Date(point.x).toLocaleString('zh-TW', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    millisecond: '3-digit'
-                                });
-                                
-                                // 安全地查找封包
-                                const packet = sortedPackets.find(p => 
-                                    p.sequence === point.seqNum && 
-                                    ((context.datasetIndex === 0 && p.path === 'path1') ||
-                                     (context.datasetIndex === 1 && p.path === 'path2') ||
-                                     (context.datasetIndex === 2 && p.type === 'acked'))
-                                );
-                                
-                                if (!packet) return [`序號: ${point.seqNum}`, `時間: ${time}`];
-                                
-                                const size = packet.size ? formatFileSize(packet.size) : 'N/A';
-                                
-                                return [
-                                    `序號: ${point.seqNum}`,
-                                    `時間: ${time}`,
-                                    `大小: ${size}`
-                                ];
-                            } catch (error) {
-                                console.error('Tooltip error:', error);
-                                return ['資料載入錯誤'];
+                animation: {
+                    duration: 300,
+                    easing: 'easeOutQuart'
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Packet Timeline'
+                    },
+                    tooltip: {
+                        enabled: true, // 確保啟用 tooltip
+                        mode: 'point', // 設定為點模式
+                        callbacks: {
+                            label: function(context) {
+                                try {
+                                    const point = context.raw;
+                                    if (!point) return null;
+                    
+                                    const time = (point.x % 1000).toFixed(3);
+                                    
+                                    // 安全地查找封包
+                                    const packet = sortedPackets.find(p => 
+                                        p.sequence === point.seqNum && 
+                                        ((context.datasetIndex === 0 && p.path === 'path1') ||
+                                        (context.datasetIndex === 1 && p.path === 'path2') ||
+                                        (context.datasetIndex === 2 && p.type === 'acked'))
+                                    );
+                                    
+                                    if (!packet) return [`序號: ${point.seqNum}`, `時間: ${time}`];
+                                    
+                                    const size = packet.size ? formatFileSize(packet.size) : 'N/A';
+                                    
+                                    return [
+                                        `序號: ${point.seqNum}`,
+                                        `時間: ${time}`,
+                                        `大小: ${size}`
+                                    ];
+                                } catch (error) {
+                                    console.error('Tooltip error:', error);
+                                    return ['資料載入錯誤'];
+                                }
+                            }
+                        }
+                    },
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Timestamp'
+                        },
+                        min: sortedPackets[0].timestamp - 0.1,
+                        // max: sortedPackets[0].timestamp + 2.5
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Path'
+                        },
+                        min: 0.989,
+                        max: 1.011,
+                        ticks: {
+                            callback: function(value) {
+                            if (value === 1.005) return 'Path 1';
+                            if (value === 1) return 'Path 2';
+                            if (value === 0.995) return 'ACKs';
+                            return '';
                             }
                         }
                     }
-                },
-            },
-            scales: {
-                x: {
-                    display: true,
-                    title: {
-                        display: true,
-                        text: 'Timestamp'
-                    },
-                    min: sortedPackets[0].timestamp - 0.1,
-                    max: sortedPackets[0].timestamp + 2.5
-                },
-                y: {
-                    display: true,
-                    title: {
-                        display: true,
-                        text: 'Path'
-                    },
-                    min: 0.989,
-                    max: 1.011,
-                    ticks: {
-                        callback: function(value) {
-                        if (value === 0.99) return 'Path 1';
-                        if (value === 1) return 'Path 2';
-                        if (value === 1.01) return 'ACKs';
-                        return '';
-                        }
-                    }
                 }
-            }
             },
             plugins: [customLabelsPlugin]
         });

@@ -99,6 +99,21 @@ body {
     text-shadow: 0 0 1px rgba(255, 255, 255, 0.1);  /* Subtle text shadow */
 }
 
+.chart-container {
+    position: relative;
+    height: 400px;  /* 固定高度 */
+    width: 100%;    /* 最大寬度 */
+    margin: 1rem 0;
+    background: var(--bg-secondary);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.dashboard-card .chart-container {
+    margin-top: 1rem;
+    padding: 0.5rem;
+}
+
 /* Typography */
 .card-title {
     font-size: 1.25rem;
