@@ -1,90 +1,114 @@
-"""
-This script sets up a Flask web server that streams video frames received over a UDP socket.
-
-sudo apt-get install libgtk2.0-dev pkg-config
-pip install Flask Flask-Response
-
-Modules:
-    cv2: OpenCV library for image processing.
-    socket: Provides low-level networking interface.
-    struct: Provides functions to interpret bytes as packed binary data.
-    numpy: Library for numerical operations.
-    flask: Micro web framework for Python.
-
-Functions:
-    generate_frames(): Generator function that receives video frame data in chunks over UDP,
-                       reconstructs the frames, and yields them as JPEG-encoded images.
-    video_feed(): Flask route that serves the video feed by calling generate_frames().
-
-Global Variables:
-    MAX_DGRAM (int): Maximum size of a UDP datagram.
-    server_socket (socket): UDP socket for receiving video frame data.
-    data (bytes): Byte string to store the reconstructed frame data.
-    frame_dict (dict): Dictionary to store received chunks of frame data.
-    expected_chunks (int or None): Number of expected chunks for the current frame.
-
-Usage:
-    Run this script to start the Flask web server. Access the video feed at http://<host>:5000/video_feed.
-"""
 import cv2
 import socket
 import struct
 import numpy as np
 from flask import Flask, Response
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# 定義數據塊大小
-MAX_DGRAM = 65536
+MAX_DGRAM = 8192
 
-# 創建socket
+# 創建 socket 並設置接收緩衝區大小
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
 server_socket.bind(('192.168.88.12', 5405))
-print("Waiting for data...")
+logger.info("Socket bound and listening on port 5405")
 
-data = b""
-frame_dict = {}
-expected_chunks = None
+def validate_shape(shape):
+    """驗證影像形狀是否合理"""
+    height, width, channels = shape
+    return (0 < height <= 2000 and 
+            0 < width <= 2000 and 
+            channels == 3)
 
 def generate_frames():
-    global data, frame_dict, expected_chunks
+    frame_dict = {}
+    expected_chunks = None
+    frame_shape = None
+    
     while True:
-        packet, _ = server_socket.recvfrom(MAX_DGRAM)
-        if not packet:
-            break
+        try:
+            packet, addr = server_socket.recvfrom(MAX_DGRAM)
+            if not packet:
+                continue
 
-        # 獲取總塊數和當前塊編號
-        total_chunks = struct.unpack("B", packet[:1])[0]
-        chunk_number = struct.unpack("B", packet[1:2])[0]
-        chunk_data = packet[2:]
+            # 解析包類型
+            packet_type = packet[0]
+            
+            # 處理幀頭包
+            if packet_type == 0:  # 幀頭包
+                try:
+                    num_chunks = struct.unpack("B", packet[1:2])[0]
+                    shape = struct.unpack("III", packet[2:14])
+                    
+                    if validate_shape(shape):
+                        expected_chunks = num_chunks
+                        frame_shape = shape
+                        frame_dict.clear()
+                        logger.debug(f"Valid header received: chunks={num_chunks}, shape={shape}")
+                    else:
+                        logger.warning(f"Invalid shape received: {shape}")
+                except Exception as e:
+                    logger.error(f"Header parsing error: {e}")
+                continue
 
-        # 將數據塊存儲在字典中
-        frame_dict[chunk_number] = chunk_data
+            # 處理數據包
+            chunk_number = packet_type - 1  # 數據包類型從1開始
+            if expected_chunks is None or chunk_number >= expected_chunks:
+                continue
 
-        # 設置預期的數據塊數量
-        if expected_chunks is None:
-            expected_chunks = total_chunks
+            chunk_data = packet[1:]
+            frame_dict[chunk_number] = chunk_data
 
-        # 檢查是否接收到所有數據塊
-        if len(frame_dict) == expected_chunks:
-            # 重組數據
-            data = b"".join([frame_dict[i] for i in sorted(frame_dict.keys())])
-            frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+            # 檢查是否收到完整幀
+            if len(frame_dict) == expected_chunks:
+                try:
+                    # 重組數據
+                    data = b"".join(frame_dict[i] for i in range(expected_chunks))
+                    
+                    # 解碼影像
+                    frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+                    
+                    if frame is not None and frame.shape == frame_shape:
+                        ret, buffer = cv2.imencode('.jpg', frame)
+                        if ret:
+                            frame_bytes = buffer.tobytes()
+                            yield (b'--frame\r\n'
+                                  b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                            logger.debug("Frame successfully sent")
+                    else:
+                        logger.warning("Frame decode failed or shape mismatch")
+                
+                except Exception as e:
+                    logger.error(f"Frame processing error: {e}")
+                
+                frame_dict.clear()
+                expected_chunks = None
+                frame_shape = None
 
-            # 將影像編碼為JPEG格式
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-
-            # 清空字典和重置預期塊數
-            frame_dict.clear()
-            expected_chunks = None
-
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        except Exception as e:
+            logger.error(f"Main loop error: {e}")
+            continue
 
 @app.route('/')
+def index():
+    return '<html><body><img src="/video_feed" width="640" height="480"></body></html>'
+
+@app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frames(), 
+                   mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    try:
+        logger.info("Starting Flask server...")
+        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    except KeyboardInterrupt:
+        logger.info("Server shutdown requested")
+    finally:
+        server_socket.close()
+        logger.info("Server stopped")
