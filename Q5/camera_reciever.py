@@ -12,26 +12,63 @@ frame_lock = threading.Lock()
 class FrameAssembler:
     def __init__(self):
         self.buffer = defaultdict(dict)
+        self.frame_timeouts = {}  # 追蹤幀的時間
+        self.timeout = 1.0        # 幀超時時間
+        
+    def cleanup_old_frames(self):
+        """清理過期的幀"""
+        current_time = time.time()
+        expired_frames = [
+            frame_id for frame_id, timestamp in self.frame_timeouts.items()
+            if current_time - timestamp > self.timeout
+        ]
+        for frame_id in expired_frames:
+            if frame_id in self.buffer:
+                del self.buffer[frame_id]
+            del self.frame_timeouts[frame_id]
     
     def add_chunk(self, frame_id, chunk_id, total_chunks, data_len, data):
+        current_time = time.time()
+        
+        # 更新幀的時間戳
+        self.frame_timeouts[frame_id] = current_time
+        
+        # 清理過期幀
+        self.cleanup_old_frames()
+        
         if len(data) != data_len:
             return None
             
         self.buffer[frame_id][chunk_id] = data
         
-        if len(self.buffer[frame_id]) == total_chunks:
+        # 檢查是否可以重組幀
+        if len(self.buffer[frame_id]) >= total_chunks * 0.9:  # 允許 10% 的包丟失
             try:
                 full_data = b''
-                for i in range(total_chunks):
-                    if i not in self.buffer[frame_id]:
-                        return None
-                    full_data += self.buffer[frame_id][i]
+                missing_chunks = []
                 
+                # 嘗試重組所有可用的分包
+                for i in range(total_chunks):
+                    if i in self.buffer[frame_id]:
+                        full_data += self.buffer[frame_id][i]
+                    else:
+                        missing_chunks.append(i)
+                
+                # 如果丟失的包太多，放棄這一幀
+                if len(missing_chunks) > total_chunks * 0.1:
+                    return None
+                
+                # 清理已使用的幀數據
                 del self.buffer[frame_id]
+                if frame_id in self.frame_timeouts:
+                    del self.frame_timeouts[frame_id]
+                    
                 return full_data
+                
             except Exception as e:
                 print(f"組裝幀 {frame_id} 時出錯: {e}")
                 return None
+                
         return None
 
 def receive_video():

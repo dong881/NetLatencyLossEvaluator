@@ -27,7 +27,7 @@ def main():
             jpeg_bytes = jpeg.tobytes()
             
             # 分包
-            chunk_size = 60000
+            chunk_size = 53000
             chunks = [jpeg_bytes[i:i+chunk_size] for i in range(0, len(jpeg_bytes), chunk_size)]
             total_chunks = len(chunks)
             
