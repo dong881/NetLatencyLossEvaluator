@@ -1,88 +1,68 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>期末專題 - 即時數據顯示</title>
+    <title>即時數據顯示系統</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Reset */
+        :root {
+            --primary-color: #ffffff;
+            --secondary-color: #f0f4f8;
+            --accent-color: #3498db;
+            --text-primary: #2c3e50;
+            --text-secondary: #718096;
+            --border-color: #e2e8f0;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            transition: all 0.3s ease;
         }
 
         body {
-            font-family: 'Arial', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            min-height: 100vh;
-            background: linear-gradient(45deg, #1d3557, #457b9d);
-            color: white;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-primary);
+            line-height: 1.6;
             overflow-x: hidden;
         }
 
-        /* 動態背景 */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background: linear-gradient(180deg, rgba(69, 123, 157, 0.8), rgba(29, 53, 87, 0.8));
-            animation: gradientShift 10s ease infinite;
-        }
-
-        @keyframes gradientShift {
-            0%, 100% {
-                background-position: 0 0;
-            }
-            50% {
-                background-position: 100% 100%;
-            }
-        }
-
-        header {
-            width: 100%;
-            padding: 20px;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.4);
-            border-bottom: 2px solid #e63946;
-        }
-
-        header h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-
-        header .time {
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-
-        main {
-            width: 90%;
+        .container {
             max-width: 1200px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            margin-top: 20px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--accent-color);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+
+        .header .time {
+            font-size: 1.4rem;
+            font-weight: 300;
+            color: var(--text-secondary);
         }
 
         .video-section {
             position: relative;
-            border: 5px solid #f4a261;
-            border-radius: 10px;
-            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
             overflow: hidden;
-            background: #2a9d8f;
-            width: 100%;
-            max-width: 800px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
         }
 
         .video-section img {
@@ -90,106 +70,172 @@
             display: block;
         }
 
-        .text-section {
-            width: 100%;
-            text-align: center;
-            font-size: 1.5rem;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
-            border-radius: 8px;
+        .data-overview {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        .info-section {
+        .project-info, .text-data-container {
+            flex: 1;
+            background: var(--primary-color);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-color);
+        }
+
+        .text-data-container {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-            max-width: 800px;
-            text-align: center;
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
         }
 
-        .info-section .title {
-            font-size: 1.8rem;
-            font-weight: bold;
+        .text-data-label {
+            font-weight: 500;
+            color: var(--text-secondary);
             margin-bottom: 10px;
+            font-size: 1rem;
         }
 
-        .info-section .content {
-            font-size: 1.2rem;
-            line-height: 1.8;
+        .text-data-content {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--secondary-color);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            min-height: 100px;
+        }
+
+        .text-data-previous {
+            margin-top: 15px;
+            padding: 10px;
+            background: var(--secondary-color);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .project-info .title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+        }
+
+        .project-info .content {
+            font-size: 1rem;
+            color: var(--text-secondary);
         }
 
         .stats-section {
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            width: 100%;
-            max-width: 800px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
         }
 
         .stats-box {
+            background: var(--primary-color);
+            border-radius: 12px;
+            padding: 20px;
             text-align: center;
-            padding: 10px;
-            border: 2px solid #f4a261;
-            border-radius: 8px;
-            background: rgba(244, 162, 97, 0.2);
-            width: 150px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-color);
         }
 
         .stats-box h2 {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .stats-box p {
-            font-size: 1.2rem;
-            font-weight: bold;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stats-box .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 5px;
+            background-color: #48bb78;
+        }
+
+        @media (max-width: 768px) {
+            .data-overview, .stats-section {
+                flex-direction: column;
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>期末專題 - 即時數據顯示系統</h1>
-        <div class="time" id="currentTime">--:--:--</div>
-    </header>
+    <div class="container">
+        <header class="header">
+            <h1>即時數據傳輸系統</h1>
+            <div class="time" id="currentTime">--:--:--</div>
+        </header>
 
-    <main>
-        <div class="video-section">
-            <img src="/video_feed" alt="即時影像">
-        </div>
+        <main>
+            <section class="video-section">
+                <img src="/video_feed" alt="即時影像">
+            </section>
 
-        <div class="text-section" id="textData">
-            等待文字數據...
-        </div>
+            <div class="data-overview">
+                <section class="text-data-container">
+                    <div class="text-data-label">即時數據</div>
+                    <div class="text-data-content" id="textData">
+                        等待文字數據...
+                    </div>
+                    <div class="text-data-previous" id="previousTextData">
+                        上一筆數據：-
+                    </div>
+                </section>
 
-        <div class="info-section">
-            <div class="title">專題資訊</div>
-            <div class="content">
-                <p>組員名單：XXX、YYY、ZZZ</p>
-                <p>題目：即時數據傳輸系統</p>
+                <section class="project-info">
+                    <div class="title">專題資訊</div>
+                    <div class="content">
+                        <p>組員：XXX、YYY、ZZZ</p>
+                        <p>題目：即時數據傳輸系統</p>
+                    </div>
+                </section>
             </div>
-        </div>
 
-        <div class="stats-section">
-            <div class="stats-box">
-                <h2>FPS</h2>
-                <p id="fpsValue">0</p>
-            </div>
-            <div class="stats-box">
-                <h2>吞吐量</h2>
-                <p id="throughputValue">0 kbps</p>
-            </div>
-        </div>
-    </main>
+            <section class="stats-section">
+                <div class="stats-box">
+                    <h2>影像 FPS</h2>
+                    <p id="fpsValue">0 
+                        <span class="status-indicator" id="fpsStatus"></span>
+                    </p>
+                </div>
+                <div class="stats-box">
+                    <h2>網路吞吐量</h2>
+                    <p id="throughputValue">0 kbps 
+                        <span class="status-indicator" id="throughputStatus"></span>
+                    </p>
+                </div>
+                <div class="stats-box">
+                    <h2>系統延遲</h2>
+                    <p id="latencyValue">0 ms 
+                        <span class="status-indicator" id="latencyStatus"></span>
+                    </p>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script>
+        let previousTextData = '';
+        let fpsArray = [];
+
         function updateTime() {
             const now = new Date();
             const timeString = now.toLocaleTimeString('en-US', { hour12: false });
@@ -200,21 +246,78 @@
             fetch('/text_feed')
                 .then(response => response.text())
                 .then(data => {
-                    document.getElementById('textData').innerText = data;
+                    const textDataElement = document.getElementById('textData');
+                    const previousTextDataElement = document.getElementById('previousTextData');
+
+                    // Store current data as previous before updating
+                    if (textDataElement.textContent.trim() !== '等待文字數據...') {
+                        previousTextData = textDataElement.textContent;
+                        previousTextDataElement.textContent = `上一筆數據：${previousTextData}`;
+                    }
+
+                    // Update current data
+                    textDataElement.textContent = data || '無數據';
+                })
+                .catch(error => {
+                    console.error('Error fetching text data:', error);
+                    document.getElementById('textData').textContent = '無法獲取數據';
                 });
         }
 
-        function updateStats() {
-            // Example stats update, replace with actual data fetch later
-            const fps = Math.floor(Math.random() * 60);  // 模擬 FPS
-            const throughput = Math.floor(Math.random() * 1000);  // 模擬吞吐量
-            document.getElementById('fpsValue').textContent = fps;
-            document.getElementById('throughputValue').textContent = `${throughput} kbps`;
+        function fetchFPSAndThroughput() {
+            fetch('/performance_metrics')
+                .then(response => response.json())
+                .then(data => {
+                    // FPS
+                    const fps = data.fps || 0;
+                    const fpsElement = document.getElementById('fpsValue');
+                    const fpsStatusElement = document.getElementById('fpsStatus');
+                    fpsElement.textContent = `${fps} FPS`;
+                    
+                    // Update FPS status color
+                    fpsStatusElement.style.backgroundColor = 
+                        fps > 30 ? '#48bb78' :  // Green for good FPS
+                        fps > 15 ? '#ecc94b' :  // Yellow for moderate FPS
+                        '#f56565';             // Red for low FPS
+
+                    // Throughput
+                    const throughput = data.throughput || 0;
+                    const throughputElement = document.getElementById('throughputValue');
+                    const throughputStatusElement = document.getElementById('throughputStatus');
+                    throughputElement.textContent = `${throughput} kbps`;
+                    
+                    // Update throughput status color
+                    throughputStatusElement.style.backgroundColor = 
+                        throughput > 500 ? '#48bb78' :  // Green for good throughput
+                        throughput > 200 ? '#ecc94b' :  // Yellow for moderate throughput
+                        '#f56565';                     // Red for low throughput
+
+                    // Latency
+                    const latency = data.latency || 0;
+                    const latencyElement = document.getElementById('latencyValue');
+                    const latencyStatusElement = document.getElementById('latencyStatus');
+                    latencyElement.textContent = `${latency} ms`;
+                    
+                    // Update latency status color
+                    latencyStatusElement.style.backgroundColor = 
+                        latency < 50 ? '#48bb78' :     // Green for low latency
+                        latency < 100 ? '#ecc94b' :    // Yellow for moderate latency
+                        '#f56565';                     // Red for high latency
+                })
+                .catch(error => {
+                    console.error('Error fetching performance metrics:', error);
+                });
         }
 
-        setInterval(updateTime, 1000);       // 每秒更新時間
-        setInterval(fetchTextData, 1000);   // 每秒更新文字數據
-        setInterval(updateStats, 1000);     // 每秒更新統計數據
+        // Initial calls
+        updateTime();
+        fetchTextData();
+        fetchFPSAndThroughput();
+
+        // Periodic updates
+        setInterval(updateTime, 1000);
+        setInterval(fetchTextData, 10);
+        setInterval(fetchFPSAndThroughput, 1000);
     </script>
 </body>
 </html>
