@@ -1,4 +1,4 @@
-from flask import Flask, Response
+from flask import Flask, Response, render_template
 import socket
 import struct
 import time
@@ -114,39 +114,11 @@ def generate_frames():
         time.sleep(0.033)
 
 
+
+
 @app.route('/')
 def index():
-    """前端主頁"""
-    return """
-    <html>
-    <head>
-        <title>即時數據顯示</title>
-        <meta charset="utf-8">
-        <style>
-            body { text-align: center; font-family: Arial, sans-serif; }
-            img { max-width: 100%; height: auto; }
-            .text-data { margin-top: 20px; font-size: 20px; }
-        </style>
-    </head>
-    <body>
-        <h1>即時影像與文字數據</h1>
-        <div>
-            <img src="/video_feed" alt="影像流">
-        </div>
-        <div class="text-data" id="textData"></div>
-        <script>
-            function fetchTextData() {
-                fetch('/text_feed')
-                    .then(response => response.text())
-                    .then(data => {
-                        document.getElementById('textData').innerText = data;
-                    });
-            }
-            setInterval(fetchTextData, 1000);  // 每秒更新文字數據
-        </script>
-    </body>
-    </html>
-    """
+    return render_template('recv_index.html')
 
 
 @app.route('/video_feed')
