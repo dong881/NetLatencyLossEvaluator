@@ -365,7 +365,7 @@ class UDPServer:
                 self.ack_received.clear()
             batch_size = 1020
             self.total_sequences = (len(compressed_data) + batch_size - 1) // batch_size
-            self.last_path1_start = max(0, self.total_sequences - 4)
+            self.last_path1_start = max(0, self.total_sequences - 5)
             if run == 0:
                 print(f"Compressed data size: {len(compressed_data)} bytes")
                 print(f"Compression ratio: {len(compressed_data) / len(full_data) * 100:.2f}%")
