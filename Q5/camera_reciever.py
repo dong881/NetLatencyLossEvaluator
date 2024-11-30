@@ -177,6 +177,7 @@ def receive_data():
                     try:
                         with text_lock:
                             timestamp = struct.unpack('!Q', timestamp_bytes)[0]
+                            metrics.update_latency(timestamp)
                             current_text = str(timestamp)
                     except struct.error:
                         pass
