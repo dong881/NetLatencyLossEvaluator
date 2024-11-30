@@ -195,7 +195,7 @@
                     <div class="text-data-content" id="textData">
                         等待文字數據...
                     </div>
-                    <div class="text-data-previous" id="previousTextData">
+                    <div class="text-data-previous" id="originalTextData">
                         上一筆數據：-
                     </div>
                 </section>
@@ -233,104 +233,108 @@
         </main>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            let previousTextData = '';
-            let fpsArray = [];
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let originalTextData = '';
+        let previousTimestamp = '';
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+
+        function fetchTextData() {
+            fetch('/text_feed')
+                .then(response => response.json())
+                .then(data => {
+                    const textDataElement = document.getElementById('textData');
+                    const originalTextDataElement = document.getElementById('originalTextData');
         
-            function updateTime() {
-                const now = new Date();
-                const timeString = now.toLocaleTimeString('en-US', { hour12: false });
-                document.getElementById('currentTime').textContent = timeString;
-            }
+                    // Store current data as previous before updating
+                    if (textDataElement.textContent.trim() !== '等待文字數據...') {
+                        originalTextDataElement.textContent = `原始數據：${previousTimestamp}`;
+                    }
         
-            function fetchTextData() {
-                fetch('/text_feed')
-                    .then(response => response.text())
-                    .then(data => {
-                        const textDataElement = document.getElementById('textData');
-                        const previousTextDataElement = document.getElementById('previousTextData');
+                    // Update current data
+                    const now = new Date();
+                    const formattedTime = now.toLocaleString('zh-TW', { hour12: false });
+                    textDataElement.textContent = `${formattedTime}`;
         
-                        // Store current data as previous before updating
-                        if (textDataElement.textContent.trim() !== '等待文字數據...') {
-                            previousTextData = textDataElement.textContent;
-                            previousTextDataElement.textContent = `上一筆數據：${previousTextData}`;
-                        }
-        
-                        // Update current data
-                        textDataElement.textContent = data || '無數據';
-                    })
-                    .catch(error => {
-                        console.error('Error fetching text data:', error);
-                        document.getElementById('textData').textContent = '無法獲取數據';
-                    });
-            }
-        
-            function fetchFPSAndThroughput() {
-                fetch('/performance_metrics')
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Received data:', data);
-                        // FPS
-                        const fps = data.fps || 0;
-                        const fpsElement = document.getElementById('fpsValue');
-                        const fpsStatusElement = document.getElementById('fpsStatus');
-                        if (fpsElement && fpsStatusElement) {
-                            fpsElement.childNodes[0].textContent = `${fps} `;
-                            console.log('Updated FPS:', fps);
-                            
-                            // Update FPS status color
-                            fpsStatusElement.style.backgroundColor = 
-                                fps > 30 ? '#48bb78' :  // Green for good FPS
-                                fps > 15 ? '#ecc94b' :  // Yellow for moderate FPS
-                                '#f56565';             // Red for low FPS
-                        }
-            
-                        // Throughput
-                        const throughput = data.throughput || 0;
-                        const throughputElement = document.getElementById('throughputValue');
-                        const throughputStatusElement = document.getElementById('throughputStatus');
-                        if (throughputElement && throughputStatusElement) {
-                            throughputElement.childNodes[0].textContent = `${throughput} kbps `;
-                            console.log('Updated Throughput:', throughput);
-                            
-                            // Update throughput status color
-                            throughputStatusElement.style.backgroundColor = 
-                                throughput > 500 ? '#48bb78' :  // Green for good throughput
-                                throughput > 200 ? '#ecc94b' :  // Yellow for moderate throughput
-                                '#f56565';                     // Red for low throughput
-                        }
-            
-                        // Latency
-                        const latency = data.latency || 0;
-                        const latencyElement = document.getElementById('latencyValue');
-                        const latencyStatusElement = document.getElementById('latencyStatus');
-                        if (latencyElement && latencyStatusElement) {
-                            latencyElement.childNodes[0].textContent = `${latency} ms `;
-                            console.log('Updated Latency:', latency);
-                            
-                            // Update latency status color
-                            latencyStatusElement.style.backgroundColor = 
-                                latency < 50 ? '#48bb78' :     // Green for low latency
-                                latency < 100 ? '#ecc94b' :    // Yellow for moderate latency
-                                '#f56565';                     // Red for high latency
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching performance metrics:', error);
-                    });
-            }
-            
-            // Initial calls
-            updateTime();
-            fetchTextData();
-            fetchFPSAndThroughput();
-        
-            // Periodic updates
-            setInterval(updateTime, 1000);
-            setInterval(fetchTextData, 100);
-            setInterval(fetchFPSAndThroughput, 1000);
-        });
-    </script>
+                    // Update timestamp
+                    previousTimestamp = now.getTime();
+                })
+                .catch(error => {
+                    console.error('Error fetching text data:', error);
+                    document.getElementById('textData').textContent = '無法獲取數據';
+                });
+        }
+
+        function fetchFPSAndThroughput() {
+            fetch('/performance_metrics')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Received data:', data);
+                    // FPS
+                    const fps = data.fps || 0;
+                    const fpsElement = document.getElementById('fpsValue');
+                    const fpsStatusElement = document.getElementById('fpsStatus');
+                    if (fpsElement && fpsStatusElement) {
+                        fpsElement.childNodes[0].textContent = `${fps} `;
+                        console.log('Updated FPS:', fps);
+
+                        // Update FPS status color
+                        fpsStatusElement.style.backgroundColor =
+                            fps > 30 ? '#48bb78' :  // Green for good FPS
+                            fps > 15 ? '#ecc94b' :  // Yellow for moderate FPS
+                            '#f56565';             // Red for low FPS
+                    }
+
+                    // Throughput
+                    const throughput = data.throughput || 0;
+                    const throughputElement = document.getElementById('throughputValue');
+                    const throughputStatusElement = document.getElementById('throughputStatus');
+                    if (throughputElement && throughputStatusElement) {
+                        throughputElement.childNodes[0].textContent = `${throughput} kbps `;
+                        console.log('Updated Throughput:', throughput);
+
+                        // Update throughput status color
+                        throughputStatusElement.style.backgroundColor =
+                            throughput > 500 ? '#48bb78' :  // Green for good throughput
+                            throughput > 200 ? '#ecc94b' :  // Yellow for moderate throughput
+                            '#f56565';                     // Red for low throughput
+                    }
+
+                    // Latency
+                    const latency = data.latency || 0;
+                    const latencyElement = document.getElementById('latencyValue');
+                    const latencyStatusElement = document.getElementById('latencyStatus');
+                    if (latencyElement && latencyStatusElement) {
+                        latencyElement.childNodes[0].textContent = `${latency} ms `;
+                        console.log('Updated Latency:', latency);
+
+                        // Update latency status color
+                        latencyStatusElement.style.backgroundColor =
+                            latency < 50 ? '#48bb78' :     // Green for low latency
+                            latency < 100 ? '#ecc94b' :    // Yellow for moderate latency
+                            '#f56565';                     // Red for high latency
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching performance metrics:', error);
+                });
+        }
+
+        // Initial calls
+        updateTime();
+        fetchTextData();
+        fetchFPSAndThroughput();
+
+        // Periodic updates
+        setInterval(updateTime, 1000);
+        setInterval(fetchTextData, 100);
+        setInterval(fetchFPSAndThroughput, 1000);
+    });
+</script>
 </body>
 </html>

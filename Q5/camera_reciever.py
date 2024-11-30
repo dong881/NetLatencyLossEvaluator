@@ -53,6 +53,13 @@ class NetworkMetrics:
                 if 0 <= latency <= 1000:  # 合理的延遲範圍
                     self.latencies.append(latency)
 
+    def update_latency(self, send_timestamp):
+        with self.lock:
+            current_time = time.time()
+            latency = (current_time - send_timestamp) * 1000  # 轉換為毫秒
+            if 0 <= latency <= 1000:  # 合理的延遲範圍
+                self.latencies.append(latency)
+
     def get_metrics(self):
         with self.lock:
             current_time = time.time()
@@ -123,7 +130,7 @@ class FrameAssembler:
             except KeyError:
                 return None
         return None
-
+    
 def receive_data():
     global current_frame, current_text
     assembler = FrameAssembler()
@@ -137,10 +144,7 @@ def receive_data():
     receivers = [receiver1, receiver2]
     for receiver in receivers:
         receiver.settimeout(1.0)
-    print("啟動接收服務...")
-
-    start_time = time.time()
-    
+        
     while True:
         for receiver in receivers:
             try:
@@ -167,13 +171,20 @@ def receive_data():
                         metrics.update(len(complete_frame), frame_timestamp)
 
                 elif data_type == TEXT_TYPE:
-                    with text_lock:
-                        current_text = packet[1:].decode('utf-8')
+                    if len(packet) < 9:
+                        continue
+                    timestamp_bytes = packet[1:9]
+                    try:
+                        with text_lock:
+                            timestamp = struct.unpack('!Q', timestamp_bytes)[0]
+                            current_text = str(timestamp)
+                    except struct.error:
+                        pass
 
             except socket.timeout:
                 continue
             except Exception as e:
-                print(f"接收錯誤: {e}")
+                print(f"error: {e}")
                 time.sleep(0.1)
 
 def generate_frames():
@@ -183,7 +194,7 @@ def generate_frames():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' +
                        current_frame + b'\r\n')
-        time.sleep(0.033)  # ~30 FPS
+        # time.sleep(0.033)  # ~30 FPS
 
 @app.route('/')
 def index():
