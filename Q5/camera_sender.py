@@ -2,57 +2,122 @@ import cv2
 import socket
 import struct
 import time
+import threading
+from queue import PriorityQueue
+
+# Packet Header Constants
+IMAGE_TYPE = 0b00  # Image data identifier
+TEXT_TYPE = 0b01   # Text data identifier
+IMAGE_QOS = 0b100  # QoS for image data
+TEXT_QOS = 0b010   # QoS for text data
+
+# Packet transmission details
+IP_ADDRESS = "192.168.88.111"
+PORT_MAPPING = {4: 5406, 2: 5408}
+
+class Packet:
+    """Represents a data packet with header and payload."""
+    def __init__(self, data_type, qos, payload):
+        self.header = struct.pack('!B', (data_type << 6) | qos)
+        self.payload = payload
+        self.qos = qos
+
+    def get_packet(self):
+        """Returns the complete packet."""
+        return self.header + self.payload
+
+class ImageProcessor:
+    """Handles image capture, compression, and segmentation."""
+    def __init__(self, chunk_size=53000):
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            raise Exception("Unable to open the camera.")
+        self.chunk_size = chunk_size
+
+    def capture_image_packets(self, frame_id):
+        """Captures a frame, compresses it, and splits it into packets."""
+        ret, frame = self.cap.read()
+        if not ret:
+            return []
+
+        # Compress image
+        frame = cv2.resize(frame, (1920, 1080))
+        _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 20])
+        jpeg_bytes = jpeg.tobytes()
+
+        # Segment into chunks
+        chunks = [jpeg_bytes[i:i + self.chunk_size] for i in range(0, len(jpeg_bytes), self.chunk_size)]
+        packets = [
+            Packet(IMAGE_TYPE, IMAGE_QOS, struct.pack('!IHHI', frame_id, len(chunks), chunk_id, len(chunk)) + chunk)
+            for chunk_id, chunk in enumerate(chunks)
+        ]
+        return packets
+
+    def release(self):
+        """Releases the camera."""
+        self.cap.release()
+
+class TimestampGenerator:
+    """Generates timestamp packets continuously."""
+    def __init__(self):
+        pass
+
+    def generate_packet(self):
+        """Generates a timestamp packet."""
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S").encode('utf-8')
+        return Packet(TEXT_TYPE, TEXT_QOS, timestamp)
+
+class PacketTransmitter:
+    """Manages the queuing and transmission of packets."""
+    def __init__(self):
+        self.queues = PriorityQueue()
+        self.sockets = {qos: socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for qos in PORT_MAPPING}
+
+    def enqueue_packet(self, packet):
+        """Adds a packet to the queue."""
+        self.queues.put((-packet.qos, time.time(), packet))  # PriorityQueue uses min-heap, so use -qos for max-priority
+
+    def transmit(self):
+        """Transmits packets based on QoS priority."""
+        while True:
+            if not self.queues.empty():
+                _, _, packet = self.queues.get()
+                port = PORT_MAPPING[packet.qos]
+                self.sockets[packet.qos].sendto(packet.get_packet(), (IP_ADDRESS, port))
+
+    def close(self):
+        """Closes all sockets."""
+        for sock in self.sockets.values():
+            sock.close()
 
 def main():
-    sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    proxy_address = ('192.168.88.12', 5405)
-    
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("無法開啟攝影機")
-        return
+    image_processor = ImageProcessor()
+    timestamp_generator = TimestampGenerator()
+    transmitter = PacketTransmitter()
 
-    print(f"開始傳送影像至 {proxy_address}")
     frame_id = 0
-    
     try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                continue
+        # Start transmitter in a separate thread
+        threading.Thread(target=transmitter.transmit, daemon=True).start()
 
-            # 壓縮影像
-            frame = cv2.resize(frame, (1920,1080))
-            _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 20])
-            jpeg_bytes = jpeg.tobytes()
-            
-            # 分包
-            chunk_size = 53000
-            chunks = [jpeg_bytes[i:i+chunk_size] for i in range(0, len(jpeg_bytes), chunk_size)]
-            total_chunks = len(chunks)
-            
-            print(f"\r幀 {frame_id}: 大小 {len(jpeg_bytes)}, 分包數 {total_chunks}", end='')
-            
-            # 發送每個分包
-            for chunk_id, chunk in enumerate(chunks):
-                # 包頭: 幀ID(4) + 總包數(2) + 包ID(2) + 數據長度(4)
-                header = struct.pack('!IHHI', frame_id, total_chunks, chunk_id, len(chunk))
-                packet = header + chunk
-                
-                try:
-                    sender.sendto(packet, proxy_address)
-                    time.sleep(0.001)
-                except:
-                    continue
-            
+        while True:
+            # Generate image packets
+            image_packets = image_processor.capture_image_packets(frame_id)
+            for packet in image_packets:
+                transmitter.enqueue_packet(packet)
+
+            # Generate timestamp packet
+            timestamp_packet = timestamp_generator.generate_packet()
+            transmitter.enqueue_packet(timestamp_packet)
+
             frame_id = (frame_id + 1) % 1000
-            time.sleep(0.033)
-            
+            time.sleep(0.033)  # Simulate 30 FPS
+
     except KeyboardInterrupt:
-        print("\n停止傳送")
+        print("Stopping...")
     finally:
-        cap.release()
-        sender.close()
+        image_processor.release()
+        transmitter.close()
 
 if __name__ == "__main__":
     main()
