@@ -128,6 +128,7 @@ def receive_data():
                         continue
                     frame_id, total_chunks, chunk_id, data_len = struct.unpack('!IHHI', packet[1:13])
                     chunk_data = packet[13:]
+                    print(f"Frame ID: {frame_id}, Chunk ID: {chunk_id}, Total Chunks: {total_chunks}, Data Length: {data_len}")
                     complete_frame = assembler.add_chunk(frame_id, chunk_id, total_chunks, data_len, chunk_data)
 
                     if complete_frame:
@@ -144,10 +145,7 @@ def receive_data():
                             timestamp = struct.unpack('!Q', timestamp_bytes)[0]
                             current_time = int(time.time() * 1000000)  # 將 current_time 轉換為微秒
                             latency = current_time - timestamp
-                            print(f"Current Time: {current_time}")
-                            print(f"Timestamp: {timestamp}")
-                            print(f"Latency: {latency}")
-                            metrics.latency = (latency / 10000.0) # 將延遲轉換為ms
+                            metrics.latency = (latency / 1000.0) # 將延遲轉換為 ms
                             current_text = timestamp
                     except struct.error:
                         pass
@@ -164,6 +162,7 @@ def generate_frames():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' +
                        current_frame + b'\r\n')
+        time.sleep(0.033)  # ~30 FPS
 
 @app.route('/')
 def index():
