@@ -236,7 +236,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         let originalTextData = '';
-        let previousTimestamp = '';
+        let originalTimestamp = '';
 
         function updateTime() {
             const now = new Date();
@@ -251,18 +251,17 @@
                     const textDataElement = document.getElementById('textData');
                     const originalTextDataElement = document.getElementById('originalTextData');
         
-                    // Store current data as previous before updating
-                    if (textDataElement.textContent.trim() !== '等待文字數據...') {
-                        originalTextDataElement.textContent = `原始數據：${previousTimestamp}`;
-                    }
-        
                     // Update current data
-                    const now = new Date();
-                    const formattedTime = now.toLocaleString('zh-TW', { hour12: false });
+                    console.log('Received data:', data);
+                    originalTimestamp = data.text;
+                    const formattedTime = new Date(parseInt(originalTimestamp, 10) / 1000).toLocaleTimeString('zh-TW', { hour12: false });
                     textDataElement.textContent = `${formattedTime}`;
         
                     // Update timestamp
-                    previousTimestamp = now.getTime();
+                    if (textDataElement.textContent.trim() !== '等待文字數據...') {
+                        originalTextDataElement.textContent = `原始數據：${originalTimestamp}`;
+                    }
+        
                 })
                 .catch(error => {
                     console.error('Error fetching text data:', error);
@@ -281,8 +280,6 @@
                     const fpsStatusElement = document.getElementById('fpsStatus');
                     if (fpsElement && fpsStatusElement) {
                         fpsElement.childNodes[0].textContent = `${fps} `;
-                        console.log('Updated FPS:', fps);
-
                         // Update FPS status color
                         fpsStatusElement.style.backgroundColor =
                             fps > 30 ? '#48bb78' :  // Green for good FPS
@@ -296,8 +293,6 @@
                     const throughputStatusElement = document.getElementById('throughputStatus');
                     if (throughputElement && throughputStatusElement) {
                         throughputElement.childNodes[0].textContent = `${throughput} kbps `;
-                        console.log('Updated Throughput:', throughput);
-
                         // Update throughput status color
                         throughputStatusElement.style.backgroundColor =
                             throughput > 500 ? '#48bb78' :  // Green for good throughput
@@ -311,8 +306,6 @@
                     const latencyStatusElement = document.getElementById('latencyStatus');
                     if (latencyElement && latencyStatusElement) {
                         latencyElement.childNodes[0].textContent = `${latency} ms `;
-                        console.log('Updated Latency:', latency);
-
                         // Update latency status color
                         latencyStatusElement.style.backgroundColor =
                             latency < 50 ? '#48bb78' :     // Green for low latency
@@ -331,7 +324,7 @@
         fetchFPSAndThroughput();
 
         // Periodic updates
-        setInterval(updateTime, 1000);
+        setInterval(updateTime, 500);
         setInterval(fetchTextData, 100);
         setInterval(fetchFPSAndThroughput, 1000);
     });

@@ -5,6 +5,7 @@ import time
 import threading
 from collections import defaultdict, deque
 
+# 初始化 Flask 應用程式
 app = Flask(__name__)
 current_frame = None
 current_text = "等待文字數據..."
@@ -18,80 +19,48 @@ TEXT_TYPE = 0b01
 class NetworkMetrics:
     def __init__(self, window_size=1.0):
         self.window_size = window_size
-        self.frames = deque(maxlen=100)  # (timestamp, size)
-        self.frame_timestamps = deque(maxlen=100)  # 接收時間
+        self.frame_timestamps = deque(maxlen=100)
         self.total_bytes = 0
-        self.start_time = time.time()
+        self.latency = 0
         self.lock = threading.Lock()
         
-        # 延遲計算
-        self.latencies = deque(maxlen=30)  # 儲存最近30個延遲樣本
-        
         # 吞吐量計算
-        self.throughput_window = deque(maxlen=30)  # (timestamp, bytes)
+        self.throughput_window = deque(maxlen=100)
         self.last_throughput = 0
-        self.last_update = time.time()
 
     def update(self, frame_size, send_timestamp):
         with self.lock:
             current_time = time.time()
-            
-            # 更新FPS計算
             self.frame_timestamps.append(current_time)
-            
-            # 更新吞吐量計算
             self.throughput_window.append((current_time, frame_size))
-            
-            # 清理舊數據
-            while self.throughput_window and \
-                  current_time - self.throughput_window[0][0] > self.window_size:
-                self.throughput_window.popleft()
-            
-            # 計算延遲
-            if send_timestamp > 0:
-                latency = (current_time - send_timestamp) * 1000  # 轉換為毫秒
-                if 0 <= latency <= 1000:  # 合理的延遲範圍
-                    self.latencies.append(latency)
 
-    def update_latency(self, send_timestamp):
-        with self.lock:
-            current_time = time.time()
-            latency = (current_time - send_timestamp) * 1000  # 轉換為毫秒
-            if 0 <= latency <= 1000:  # 合理的延遲範圍
-                self.latencies.append(latency)
+            # 清理過期的吞吐量數據
+            self.throughput_window = deque(
+                [(t, size) for t, size in self.throughput_window if current_time - t <= self.window_size]
+            )
 
     def get_metrics(self):
         with self.lock:
             current_time = time.time()
             
-            # 計算FPS
-            recent_frames = [t for t in self.frame_timestamps 
-                           if current_time - t <= self.window_size]
-            fps = len(recent_frames)
+            # FPS 計算
+            recent_frames = [t for t in self.frame_timestamps if current_time - t <= self.window_size]
+            fps = len(recent_frames) / self.window_size if recent_frames else 0
             
-            # 計算吞吐量 (kbps)
+            # 吞吐量計算
             if self.throughput_window:
-                window_duration = current_time - self.throughput_window[0][0]
-                if window_duration > 0:
-                    total_bytes = sum(size for _, size in self.throughput_window)
-                    throughput = (total_bytes * 8) / (window_duration * 1024)
-                else:
-                    throughput = self.last_throughput
+                total_bytes = sum(size for _, size in self.throughput_window)
+                duration = current_time - self.throughput_window[0][0]
+                throughput = (total_bytes * 8) / (duration * 1024) if duration > 0 else 0
             else:
                 throughput = 0
-            
-            # 計算平均延遲
-            latency = sum(self.latencies) / len(self.latencies) if self.latencies else 0
-            
-            self.last_throughput = throughput
             
             return {
                 "fps": round(fps, 2),
                 "throughput": round(throughput, 2),
-                "latency": round(latency, 2)
+                "latency": round(self.latency, 2)
             }
 
-# 初始化網路指標監控器
 metrics = NetworkMetrics()
 
 class FrameAssembler:
@@ -122,8 +91,7 @@ class FrameAssembler:
 
         if len(self.buffer[frame_id]) == total_chunks:
             try:
-                full_data = b''.join(self.buffer[frame_id][i] 
-                                   for i in range(total_chunks))
+                full_data = b''.join(self.buffer[frame_id][i] for i in range(total_chunks))
                 del self.buffer[frame_id]
                 del self.frame_timeouts[frame_id]
                 return full_data
@@ -165,10 +133,7 @@ def receive_data():
                     if complete_frame:
                         with frame_lock:
                             current_frame = complete_frame
-                            
-                        # 更新性能指標
-                        frame_timestamp = frame_id / 1000.0  # 轉換為秒
-                        metrics.update(len(complete_frame), frame_timestamp)
+                        metrics.update(len(complete_frame), frame_id / 1000.0)
 
                 elif data_type == TEXT_TYPE:
                     if len(packet) < 9:
@@ -177,16 +142,20 @@ def receive_data():
                     try:
                         with text_lock:
                             timestamp = struct.unpack('!Q', timestamp_bytes)[0]
-                            metrics.update_latency(timestamp)
-                            current_text = str(timestamp)
+                            current_time = int(time.time() * 1000000)  # 將 current_time 轉換為微秒
+                            latency = current_time - timestamp
+                            print(f"Current Time: {current_time}")
+                            print(f"Timestamp: {timestamp}")
+                            print(f"Latency: {latency}")
+                            metrics.latency = (latency / 10000.0) # 將延遲轉換為ms
+                            current_text = timestamp
                     except struct.error:
                         pass
 
             except socket.timeout:
                 continue
             except Exception as e:
-                print(f"error: {e}")
-                time.sleep(0.1)
+                pass
 
 def generate_frames():
     while True:
@@ -195,7 +164,6 @@ def generate_frames():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' +
                        current_frame + b'\r\n')
-        # time.sleep(0.033)  # ~30 FPS
 
 @app.route('/')
 def index():
@@ -209,7 +177,8 @@ def video_feed():
 @app.route('/text_feed')
 def text_feed():
     with text_lock:
-        return current_text
+        print(f"Get Text: {current_text}")  
+        return jsonify({"text": current_text})
 
 @app.route('/performance_metrics')
 def performance_metrics():
