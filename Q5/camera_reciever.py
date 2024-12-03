@@ -145,6 +145,8 @@ def receive_data():
                             timestamp = struct.unpack('!Q', timestamp_bytes)[0]
                             current_time = int(time.time() * 1000000)  # 將 current_time 轉換為微秒
                             latency = current_time - timestamp
+                            if latency < 0:
+                                latency = 0
                             metrics.latency = (latency / 1000.0) # 將延遲轉換為 ms
                             current_text = timestamp
                     except struct.error:
