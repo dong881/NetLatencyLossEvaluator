@@ -1,20 +1,101 @@
+from flask import Flask, render_template, request, jsonify
 import cv2
 import socket
 import struct
 import time
 import threading
+import json
 from queue import PriorityQueue
+from pathlib import Path
+
+# 建立 Flask 應用
+app = Flask(__name__)
+
+qos_manager = None
+
 
 # Packet Header Constants
-IMAGE_TYPE = 0b00  # Image data identifier
-TEXT_TYPE = 0b01   # Text data identifier
-IMAGE_QOS = 0b100  # QoS for image data
-# TEXT_QOS = 0b100   # QoS for text data
-TEXT_QOS = 0b010   # QoS for text data
+IMAGE_TYPE = 0b00
+TEXT_TYPE = 0b01
+
+# Default QoS settings
+DEFAULT_IMAGE_QOS = 4
+DEFAULT_TEXT_QOS = 2
+
 
 # Packet transmission details
 IP_ADDRESS = "192.168.88.111"
-PORT_MAPPING = {4: 5406, 2: 5408}
+PORT_MAPPING = {
+    0: 5410,
+    1: 5409,
+    2: 5408,
+    3: 5407,
+    4: 5406,
+    5: 5405,
+    6: 5404,
+    7: 5403,
+    8: 5402
+}
+
+# Flask 路由
+@app.route('/')
+def index():
+    return render_template('control_index.html')
+
+@app.route('/api/qos', methods=['GET', 'POST'])
+def manage_qos():
+    global qos_manager
+    if request.method == 'POST':
+        data = request.json
+        qos_manager.update_qos(
+            image_qos=data.get('image_qos'),
+            text_qos=data.get('text_qos')
+        )
+        return jsonify({"status": "success"})
+    else:
+        return jsonify({
+            "image_qos": qos_manager.image_qos,
+            "text_qos": qos_manager.text_qos
+        })
+
+class QoSManager:
+    """Manages QoS settings for different data types."""
+    def __init__(self):
+        self.config_file = Path("qos_config.json")
+        self.image_qos = DEFAULT_IMAGE_QOS
+        self.text_qos = DEFAULT_TEXT_QOS
+        self.load_config()
+
+    def load_config(self):
+        """Loads QoS configuration from file."""
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+                    self.image_qos = config.get('image_qos', DEFAULT_IMAGE_QOS)
+                    self.text_qos = config.get('text_qos', DEFAULT_TEXT_QOS)
+            except Exception as e:
+                print(f"Error loading config: {e}")
+
+    def save_config(self):
+        """Saves current QoS configuration to file."""
+        config = {
+            'image_qos': self.image_qos,
+            'text_qos': self.text_qos
+        }
+        try:
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f)
+        except Exception as e:
+            print(f"Error saving config: {e}")
+
+    def update_qos(self, image_qos=None, text_qos=None):
+        """Updates QoS settings and saves to config."""
+        if image_qos is not None:
+            self.image_qos = image_qos
+        if text_qos is not None:
+            self.text_qos = text_qos
+        self.save_config()
 
 class Packet:
     """Represents a data packet with header and payload."""
@@ -35,21 +116,21 @@ class ImageProcessor:
             raise Exception("Unable to open the camera.")
         self.chunk_size = chunk_size
 
-    def capture_image_packets(self, frame_id):
+    def capture_image_packets(self, frame_id, qos):
         """Captures a frame, compresses it, and splits it into packets."""
         ret, frame = self.cap.read()
         if not ret:
             return []
 
-        # Compress image
         frame = cv2.resize(frame, (1920, 1080))
         _, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 20])
         jpeg_bytes = jpeg.tobytes()
 
-        # Segment into chunks
-        chunks = [jpeg_bytes[i:i + self.chunk_size] for i in range(0, len(jpeg_bytes), self.chunk_size)]
+        chunks = [jpeg_bytes[i:i + self.chunk_size] 
+                 for i in range(0, len(jpeg_bytes), self.chunk_size)]
         packets = [
-            Packet(IMAGE_TYPE, IMAGE_QOS, struct.pack('!IHHI', frame_id, len(chunks), chunk_id, len(chunk)) + chunk)
+            Packet(IMAGE_TYPE, qos, 
+                  struct.pack('!IHHI', frame_id, len(chunks), chunk_id, len(chunk)) + chunk)
             for chunk_id, chunk in enumerate(chunks)
         ]
         return packets
@@ -60,26 +141,22 @@ class ImageProcessor:
 
 class TimestampGenerator:
     """Generates timestamp packets continuously."""
-    def __init__(self):
-        pass
-
-    def generate_packet(self):
+    def generate_packet(self, qos):
         """Generates a timestamp packet with Unix timestamp."""
-        # 取得 Unix timestamp 並轉換為整數
         timestamp = int(time.time()*1000000)
-        # 使用 struct.pack 將整數轉換為 8 bytes 的二進制格式
         timestamp_bytes = struct.pack('!Q', timestamp)
-        return Packet(TEXT_TYPE, TEXT_QOS, timestamp_bytes)
+        return Packet(TEXT_TYPE, qos, timestamp_bytes)
 
 class PacketTransmitter:
     """Manages the queuing and transmission of packets."""
     def __init__(self):
         self.queues = PriorityQueue()
-        self.sockets = {qos: socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for qos in PORT_MAPPING}
+        self.sockets = {qos: socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
+                       for qos in PORT_MAPPING}
 
     def enqueue_packet(self, packet):
         """Adds a packet to the queue."""
-        self.queues.put((-packet.qos, time.time(), packet))  # PriorityQueue uses min-heap, so use -qos for max-priority
+        self.queues.put((-packet.qos, time.time(), packet))
 
     def transmit(self):
         """Transmits packets based on QoS priority."""
@@ -87,7 +164,10 @@ class PacketTransmitter:
             if not self.queues.empty():
                 _, _, packet = self.queues.get()
                 port = PORT_MAPPING[packet.qos]
-                self.sockets[packet.qos].sendto(packet.get_packet(), (IP_ADDRESS, port))
+                self.sockets[packet.qos].sendto(
+                    packet.get_packet(), 
+                    (IP_ADDRESS, port)
+                )
 
     def close(self):
         """Closes all sockets."""
@@ -95,27 +175,35 @@ class PacketTransmitter:
             sock.close()
 
 def main():
+    global qos_manager
+    qos_manager = QoSManager()
     image_processor = ImageProcessor()
     timestamp_generator = TimestampGenerator()
     transmitter = PacketTransmitter()
 
     frame_id = 0
     try:
-        # Start transmitter in a separate thread
         threading.Thread(target=transmitter.transmit, daemon=True).start()
+        
+        # 啟動 Flask 應用
+        threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5050), 
+                        daemon=True).start()
 
         while True:
-            # Generate image packets
-            image_packets = image_processor.capture_image_packets(frame_id)
+            image_packets = image_processor.capture_image_packets(
+                frame_id, 
+                qos_manager.image_qos
+            )
             for packet in image_packets:
                 transmitter.enqueue_packet(packet)
 
-            # Generate timestamp packet
-            timestamp_packet = timestamp_generator.generate_packet()
+            timestamp_packet = timestamp_generator.generate_packet(
+                qos_manager.text_qos
+            )
             transmitter.enqueue_packet(timestamp_packet)
 
             frame_id = (frame_id + 1) % 1000
-            time.sleep(0.033)  # Simulate 30 FPS
+            time.sleep(0.033)
 
     except KeyboardInterrupt:
         print("Stopping...")
