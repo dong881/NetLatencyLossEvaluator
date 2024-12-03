@@ -9,6 +9,7 @@ from queue import PriorityQueue
 IMAGE_TYPE = 0b00  # Image data identifier
 TEXT_TYPE = 0b01   # Text data identifier
 IMAGE_QOS = 0b100  # QoS for image data
+# TEXT_QOS = 0b100   # QoS for text data
 TEXT_QOS = 0b010   # QoS for text data
 
 # Packet transmission details
@@ -28,7 +29,7 @@ class Packet:
 
 class ImageProcessor:
     """Handles image capture, compression, and segmentation."""
-    def __init__(self, chunk_size=53000):
+    def __init__(self, chunk_size=65000):
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
             raise Exception("Unable to open the camera.")
@@ -63,9 +64,12 @@ class TimestampGenerator:
         pass
 
     def generate_packet(self):
-        """Generates a timestamp packet."""
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S").encode('utf-8')
-        return Packet(TEXT_TYPE, TEXT_QOS, timestamp)
+        """Generates a timestamp packet with Unix timestamp."""
+        # 取得 Unix timestamp 並轉換為整數
+        timestamp = int(time.time()*1000000)
+        # 使用 struct.pack 將整數轉換為 8 bytes 的二進制格式
+        timestamp_bytes = struct.pack('!Q', timestamp)
+        return Packet(TEXT_TYPE, TEXT_QOS, timestamp_bytes)
 
 class PacketTransmitter:
     """Manages the queuing and transmission of packets."""
