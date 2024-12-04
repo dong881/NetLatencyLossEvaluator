@@ -217,7 +217,7 @@
     <body>
         <div class="container">
             <header class="header">
-                <h1>即時數據傳輸系統</h1>
+                <h1>QoS and VLAN 概念實作 (傳輸影像與文字)</h1>
                 <div class="time" id="currentTime">--:--:--</div>
             </header>
     
@@ -229,12 +229,12 @@
     
                     <div class="data-overview">
                         <section class="text-data-container">
-                            <div class="text-data-label">即時數據</div>
+                            <div class="text-data-label">接收的文字數據</div>
                             <div class="text-data-content" id="textData">
                                 等待文字數據...
                             </div>
                             <div class="text-data-previous" id="originalTextData">
-                                上一筆數據：-
+                                原始數據：-
                             </div>
                         </section>
                     </div>
@@ -248,7 +248,7 @@
                         </p>
                     </div>
                     <div class="stats-box">
-                        <h2>網路吞吐量</h2>
+                        <h2>所有通道吞吐量</h2>
                         <p id="throughputValue">0 kbps 
                             <span class="status-indicator" id="throughputStatus"></span>
                         </p>
@@ -280,7 +280,7 @@
             function updateTime() {
                 const now = new Date();
                 const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
-                document.getElementById('currentTime').textContent = timeString;
+                document.getElementById('currentTime').textContent = "目前正確時間：" + timeString;
             }
 
             function fetchTextData() {
@@ -329,7 +329,7 @@
                         const throughputElement = document.getElementById('throughputValue');
                         const throughputStatusElement = document.getElementById('throughputStatus');
                         if (throughputElement && throughputStatusElement) {
-                            throughputElement.childNodes[0].textContent = `${throughput} kbps `;
+                            throughputElement.childNodes[0].textContent = `${(throughput / 1000).toFixed(2)} Mbps `;
                             // Update throughput status color
                             throughputStatusElement.style.backgroundColor =
                                 throughput > 500 ? '#48bb78' :  // Green for good throughput
@@ -362,8 +362,8 @@
 
             // Periodic updates
             setInterval(updateTime, 900);
-            setInterval(fetchTextData, 300);
-            setInterval(fetchFPSAndThroughput, 900);
+            setInterval(fetchTextData, 200);
+            setInterval(fetchFPSAndThroughput, 950);
         });
     </script>
 </body>

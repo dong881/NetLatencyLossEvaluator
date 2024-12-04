@@ -28,7 +28,7 @@ class NetworkMetrics:
         self.throughput_window = deque(maxlen=100)
         self.last_throughput = 0
 
-    def update(self, frame_size, send_timestamp):
+    def update(self, frame_size):
         with self.lock:
             current_time = time.time()
             self.frame_timestamps.append(current_time)
@@ -128,13 +128,13 @@ def receive_data():
                         continue
                     frame_id, total_chunks, chunk_id, data_len = struct.unpack('!IHHI', packet[1:13])
                     chunk_data = packet[13:]
-                    print(f"Frame ID: {frame_id}, Chunk ID: {chunk_id}, Total Chunks: {total_chunks}, Data Length: {data_len}")
+                    # print(f"Frame ID: {frame_id}, Chunk ID: {chunk_id}, Total Chunks: {total_chunks}, Data Length: {data_len}")
                     complete_frame = assembler.add_chunk(frame_id, chunk_id, total_chunks, data_len, chunk_data)
 
                     if complete_frame:
                         with frame_lock:
                             current_frame = complete_frame
-                        metrics.update(len(complete_frame), frame_id / 1000.0)
+                        metrics.update(len(complete_frame))
 
                 elif data_type == TEXT_TYPE:
                     if len(packet) < 9:
@@ -178,7 +178,6 @@ def video_feed():
 @app.route('/text_feed')
 def text_feed():
     with text_lock:
-        print(f"Get Text: {current_text}")  
         return jsonify({"text": current_text})
 
 @app.route('/performance_metrics')
