@@ -319,8 +319,8 @@
                             fpsElement.childNodes[0].textContent = `${fps} `;
                             // Update FPS status color
                             fpsStatusElement.style.backgroundColor =
-                                fps > 30 ? '#48bb78' :  // Green for good FPS
-                                fps > 15 ? '#ecc94b' :  // Yellow for moderate FPS
+                                fps > 10 ? '#48bb78' :  // Green for good FPS
+                                fps > 5 ? '#ecc94b' :  // Yellow for moderate FPS
                                 '#f56565';             // Red for low FPS
                         }
 
