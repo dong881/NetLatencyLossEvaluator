@@ -28,11 +28,15 @@ class NetworkMetrics:
         self.throughput_window = deque(maxlen=100)
         self.last_throughput = 0
 
-    def update(self, frame_size):
+    def update_fps(self):
         with self.lock:
             current_time = time.time()
             self.frame_timestamps.append(current_time)
-            self.throughput_window.append((current_time, frame_size))
+
+    def update_metrics(self, packet_size):
+        with self.lock:
+            current_time = time.time()
+            self.throughput_window.append((current_time, packet_size))
 
             # 清理過期的吞吐量數據
             self.throughput_window = deque(
@@ -128,13 +132,13 @@ def receive_data():
                         continue
                     frame_id, total_chunks, chunk_id, data_len = struct.unpack('!IHHI', packet[1:13])
                     chunk_data = packet[13:]
-                    # print(f"Frame ID: {frame_id}, Chunk ID: {chunk_id}, Total Chunks: {total_chunks}, Data Length: {data_len}")
                     complete_frame = assembler.add_chunk(frame_id, chunk_id, total_chunks, data_len, chunk_data)
 
                     if complete_frame:
                         with frame_lock:
                             current_frame = complete_frame
-                        metrics.update(len(complete_frame))
+                        metrics.update_fps()
+                        metrics.update_metrics(len(complete_frame))
 
                 elif data_type == TEXT_TYPE:
                     if len(packet) < 9:
@@ -149,6 +153,7 @@ def receive_data():
                                 latency = 0
                             metrics.latency = (latency / 1000.0) # 將延遲轉換為 ms
                             current_text = timestamp
+                        metrics.update_metrics(len(packet))  # 更新吞吐量計算，包含文字封包的大小
                     except struct.error:
                         pass
 
