@@ -63,8 +63,8 @@ def format_log(time, tag, message):
 
 def udp_proxy1_loss():
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    proxy_socket.bind(('192.168.88.111', 5406))
-    client_address = ('192.168.88.12', 5405)
+    proxy_socket.bind(('192.168.88.111', 5678))
+    client_address = ('192.168.88.12', 5680)
     print("[Proxy1] Started - 10% packet loss")
 
     while True:
@@ -98,8 +98,8 @@ def delay_packet(data, client_address, proxy_socket):
 
 def udp_proxy2_delay():
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    proxy_socket.bind(('192.168.88.111', 5408))
-    client_address = ('192.168.88.12', 5407)
+    proxy_socket.bind(('192.168.88.111', 4567))
+    client_address = ('192.168.88.12', 4576)
     print("[Proxy2] Started - 5% delay")
 
     while True:

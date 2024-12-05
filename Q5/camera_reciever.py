@@ -108,10 +108,10 @@ def receive_data():
     assembler = FrameAssembler()
 
     receiver1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    receiver1.bind(('192.168.88.12', 5405))
+    receiver1.bind(('192.168.88.12', 5680))
 
     receiver2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    receiver2.bind(('192.168.88.12', 5407))
+    receiver2.bind(('192.168.88.12', 4576))
     
     receivers = [receiver1, receiver2]
     for receiver in receivers:
@@ -193,4 +193,4 @@ if __name__ == "__main__":
     thread = threading.Thread(target=receive_data)
     thread.daemon = True
     thread.start()
-    app.run(host='0.0.0.0', port=8080, threaded=True)
+    app.run(host='0.0.0.0', port=5555, threaded=True)

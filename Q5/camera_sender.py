@@ -26,15 +26,14 @@ DEFAULT_TEXT_QOS = 2
 # Packet transmission details
 IP_ADDRESS = "192.168.88.111"
 PORT_MAPPING = {
-    0: 5410,
-    1: 5409,
-    2: 5408,
-    3: 5407,
-    4: 5406,
-    5: 5405,
-    6: 5404,
-    7: 5403,
-    8: 5402
+    # 0: 5410,
+    # 1: 5409,
+    2: 4567,
+    # 3: 5407,
+    4: 5678,
+    # 5: 5405,
+    # 6: 5404,
+    # 7: 5403,
 }
 
 # Flask 路由
@@ -186,7 +185,7 @@ def main():
         threading.Thread(target=transmitter.transmit, daemon=True).start()
         
         # 啟動 Flask 應用
-        threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5050), 
+        threading.Thread(target=lambda: app.run(host='0.0.0.0', port=5000), 
                         daemon=True).start()
 
         while True:
