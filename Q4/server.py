@@ -267,7 +267,7 @@ class UDPServer:
             return jsonify({'status': 'error'}), 500
 
         def run_flask():
-            app.run(host='0.0.0.0', port=8080, threaded=True)
+            app.run(host='0.0.0.0', port=4000, threaded=True)
 
         flask_thread = threading.Thread(target=run_flask, daemon=True)
         flask_thread.start()
