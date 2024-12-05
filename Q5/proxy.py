@@ -80,7 +80,7 @@ def udp_proxy1_loss():
             stats['data_total'] += len(data)
             stats['idle_logged'] = False  # 清除 Idle 狀態標記
 
-            if random.random() > 0:  # chance to forward
+            if random.random() > 0.1:  # chance to forward
                 proxy_socket.sendto(data, client_address)
                 print(format_log(current_time, "Proxy1", f"Forwarded: {len(data)} bytes"), end="")
             else:
@@ -115,7 +115,7 @@ def udp_proxy2_delay():
             stats['data_total'] += len(data)
             stats['idle_logged'] = False  # 清除 Idle 狀態標記
 
-            if random.random() < 0:  # chance of delay
+            if random.random() < 0.4:  # chance of delay
                 stats['delay_count'] += 1  # 增加延遲計數
                 threading.Thread(
                     target=delay_packet, 
