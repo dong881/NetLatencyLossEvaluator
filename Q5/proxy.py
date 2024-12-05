@@ -100,7 +100,7 @@ def udp_proxy2_delay():
     proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     proxy_socket.bind(('192.168.88.111', 4567))
     client_address = ('192.168.88.12', 4576)
-    print("[Proxy2] Started - 5% delay")
+    print("[Proxy2] Started - 40% delay")
 
     while True:
         try:
