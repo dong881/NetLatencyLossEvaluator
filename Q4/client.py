@@ -69,7 +69,7 @@ class UDPClient:
             
             for sock in readable:
                 try:
-                    message, _ = sock.recvfrom(1024)
+                    message, _ = sock.recvfrom(65535)
                     
                     # Extract sequence number and data
                     sequence_number = int.from_bytes(message[:4], "big")

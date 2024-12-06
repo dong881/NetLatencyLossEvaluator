@@ -67,7 +67,7 @@ def udp_proxy1_loss():
 
     while True:
         try:
-            data, _ = proxy_socket.recvfrom(1024)
+            data, _ = proxy_socket.recvfrom(65535)
             current_time = time.time()
 
             # 更新統計數據
@@ -102,7 +102,7 @@ def udp_proxy2_delay():
 
     while True:
         try:
-            data, _ = proxy_socket.recvfrom(1024)
+            data, _ = proxy_socket.recvfrom(65535)
             current_time = time.time()
 
             # 更新統計數據

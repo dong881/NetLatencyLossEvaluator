@@ -259,7 +259,7 @@ class UDPServer:
     def _ack_listener(self):
         while True:
             try:
-                ack_message, _ = self.ack_socket.recvfrom(1024)
+                ack_message, _ = self.ack_socket.recvfrom(65535)
                 ack_data = ack_message.decode("utf-8").split(":")
                 if ack_data[0] == "ACK":
                     sequence_number = int(ack_data[1])
