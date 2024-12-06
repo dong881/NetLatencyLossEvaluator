@@ -180,26 +180,6 @@ class UDPServer:
         except Exception as e:
             print(f"Error clearing history: {e}")
             return False
-        try:
-            with open(self.log_file, 'r') as f:
-                history = json.load(f)
-                
-            if not history:
-                return
-                
-            total_rtt = sum(session['total_rtt'] for session in history)
-            total_throughput = sum(session['throughput'] for session in history)
-            total_loss_rate = sum(session['packet_loss_rate'] for session in history)
-            count = len(history)
-            
-            self.monitor.record_event('historical_averages', 
-                average_rtt=total_rtt/count,
-                average_throughput=total_throughput/count,
-                average_packet_loss_rate=total_loss_rate/count
-            )
-            
-        except Exception as e:
-            print(f"Error updating historical averages: {e}")
         
     def reset_stats(self):
         self.total_sequences = 0
