@@ -72,6 +72,7 @@
             overflow: hidden;
             box-sizing: border-box;
             transition: all 0.2s ease;
+            animation: fadeIn 0.1s ease-out;
         }
 
         .packet:hover {
@@ -105,10 +106,22 @@
             transform: translateY(-2px);
         }
 
+        .loading-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.8);
+            z-index: 100;
+        }
+
         .loading-spinner {
-            width: 40px;
-            height: 40px;
-            margin: 0 auto;
+            width: 50px;
+            height: 50px;
             border: 4px solid #f3f3f3;
             border-top: 4px solid #2196F3;
             border-radius: 50%;
@@ -119,10 +132,24 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
+        <div id="loading" class="loading-container">
+            <div class="loading-spinner"></div>
+        </div>
         <div class="header">
             <div class="total" id="total">等待封包中...</div>
             <div class="timestamp" id="timestamp"></div>
@@ -165,6 +192,11 @@
                 const scrollTop = this.container.scrollTop;
                 const scrollButton = document.getElementById('scrollTopBtn');
                 
+                // 檢查是否接近底部
+                const isNearBottom = this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight < 100;
+                this.shouldScrollToBottom = isNearBottom;
+                
+                // 控制返回頂部按鈕顯示
                 if (scrollTop > 300) {
                     scrollButton.style.display = 'flex';
                 } else {
@@ -196,13 +228,17 @@
                 this.container.appendChild(this.content);
                 this.render();
                 
-                // 只在初始化時自動滾動到底部
-                if (!this.initialized) {
-                    requestAnimationFrame(() => {
-                        this.container.scrollTop = this.container.scrollHeight;
-                        this.initialized = true;
+                this.scrollToBottom();
+            }
+            // 新增滾動到底部的方法
+            scrollToBottom() {
+                requestAnimationFrame(() => {
+                    this.container.scrollTo({
+                        top: this.container.scrollHeight,
+                        behavior: 'smooth'
                     });
-                }
+                    this.initialized = true;
+                });
             }
 
             render() {
@@ -235,40 +271,65 @@
         }
 
         let lastTimestamp = 0;
+        // 在 script 開頭加入初始化標記
+        let isInitialized = false;
         let isProcessing = false;
-
+        
+        // 修改 fetchPackets 函數
         async function fetchPackets() {
             if (isProcessing) return;
             
+            const loadingElement = document.getElementById('loading');
+            
+            // 只在初始化時顯示 loading
+            if (!isInitialized) {
+                loadingElement.style.display = 'flex';
+            }
+            
             try {
                 const response = await fetch('/packets');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
                 const data = await response.json();
-                if (!data || !data.packets) {
+                
+                if (!data || !data.packets || !data.timestamp) {
                     console.error('資料格式不正確:', data);
                     return;
                 }
                 
-                isProcessing = true;
-                
-                document.getElementById('total').innerHTML = `封包總數: ${data.total || 0}`;
-                document.getElementById('timestamp').innerHTML = data.timestamp ? 
-                    `最後更新: ${new Date(data.timestamp * 1000).toLocaleString('zh-TW')}` : 
-                    '尚未更新';
-                
-                const packets = Array.isArray(data.packets) ? data.packets : [];
-                await renderPackets(packets);
-                
-                if (data.timestamp) lastTimestamp = data.timestamp;
+                // 使用 timestamp 判斷是否需要更新
+                if (data.timestamp > lastTimestamp) {
+                    isProcessing = true;
+                    
+                    // 更新時間和總數
+                    const totalDiv = document.getElementById('total');
+                    const timestampDiv = document.getElementById('timestamp');
+                    totalDiv.innerHTML = `封包總數: ${data.total || 0}`;
+                    timestampDiv.innerHTML = `最後更新: ${new Date(data.timestamp * 1000).toLocaleString('zh-TW')}`;
+                    
+                    // 渲染封包
+                    await renderPackets(data.packets);
+                    
+                    lastTimestamp = data.timestamp;
+                    
+                    // 收到第一筆資料後，標記為已初始化並隱藏 loading
+                    if (!isInitialized) {
+                        isInitialized = true;
+                        loadingElement.style.display = 'none';
+                    }
+                    
+                    isProcessing = false;
+                }
                 
             } catch (error) {
                 console.error('獲取封包時發生錯誤:', error);
+                // 發生錯誤時也要隱藏 loading
+                if (!isInitialized) {
+                    loadingElement.style.display = 'none';
+                }
             } finally {
                 isProcessing = false;
             }
         }
-
+        
         async function renderPackets(packets) {
             const packetsDiv = document.getElementById('packets');
             if (!packetsDiv) return;
