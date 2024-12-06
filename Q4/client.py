@@ -2,6 +2,9 @@ import socket
 import select
 import lzma
 from collections import defaultdict
+from flask import Flask, render_template, jsonify
+import threading
+import time
 
 class UDPClient:
     def __init__(self, ports=[5405, 5407], client_ip='192.168.88.12', server_ip='192.168.88.21', server_port=5409):
@@ -20,6 +23,8 @@ class UDPClient:
         self.buffer = {}
         self.received_sequences = set()
         self.total_expected_sequences = None  # Track total expected sequences
+        self.last_update_time = time.time()
+        self.packets = []  # Store packets for Flask display
         
     def decompress_with_lzma(self, compressed_data: bytes) -> str:
         return lzma.decompress(compressed_data).decode("utf-8")
@@ -46,9 +51,9 @@ class UDPClient:
             
             # Decompress data
             decompressed_data = self.decompress_with_lzma(sorted_data)
-            packets = self.split_packets(decompressed_data)
-            
-            print(f"\nReceived and processed {len(packets)} packets successfully")
+            self.packets = self.split_packets(decompressed_data)
+            self.last_update_time = time.time()
+            print(f"\nReceived and processed {len(self.packets)} packets successfully")
             
             # Clear buffers for next transmission
             self.buffer.clear()
@@ -95,7 +100,26 @@ class UDPClient:
                 except Exception as e:
                     print(f"Error processing packet: {e}")
 
-# Usage
+# Flask app setup
+app = Flask(__name__)
+client = UDPClient()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/packets')
+def get_packets():
+    return jsonify({
+        "total": len(client.packets),
+        "packets": client.packets,
+        "timestamp": client.last_update_time  # 使用類別中儲存的時間戳
+    })
+
+def run_flask():
+    app.run(host='0.0.0.0', port=4444, threaded=True)
+
 if __name__ == "__main__":
-    client = UDPClient()
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
     client.start_receiving()
