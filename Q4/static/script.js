@@ -163,10 +163,10 @@ function updateStatus(stats) {
     // Update Performance Metrics
     document.getElementById('totalRtt').textContent = 
         `${safeGetNumber(stats, 'performance', 'total_rtt').toFixed(2)} ms`;
-    document.getElementById('avgThroughput').textContent = 
+    document.getElementById('currentThroughput').textContent = 
         `${safeGetNumber(stats, 'performance', 'average_throughput').toFixed(2)} KB/s`;
     document.getElementById('packetLossRate').textContent = 
-        `${safeGetNumber(stats, 'performance', 'average_packet_loss_rate').toFixed(1)}%`;
+        `${(safeGetNumber(stats, 'performance', 'total_packet_loss_rate')*100).toFixed(2)}%`;
 
     // Update Path Statistics
     const path1 = stats?.paths?.path1 || { packets: 0, success: 0 };
