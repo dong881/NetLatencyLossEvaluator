@@ -63,6 +63,22 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.input-box {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    transition: all 0.3s ease;
+}
+
+.input-box:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
 /* 清除按鈕樣式 */
 #clearHistoryBtn {
     padding: 0.5rem 1rem;

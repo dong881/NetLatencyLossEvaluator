@@ -13,8 +13,8 @@ import os
 def compress_with_lzma(data: str) -> bytes:
     return lzma.compress(data.encode("utf-8"))
 
-def generate_packet_data(start: int, end: int, delimiter: str = "|") -> str:
-    return delimiter.join(f"Packet {i}" for i in range(start, end + 1))
+def generate_packet_data(start: int, end: int, delimiter: str = "|", prefix: str = "Packet") -> str:
+    return delimiter.join(f"{prefix} {i}" for i in range(start, end + 1))
      
 class UDPServerMonitor:
     def __init__(self):
@@ -208,6 +208,8 @@ class UDPServer:
         
         @app.route('/api/transmission/toggle', methods=['POST'])
         def toggle_transmission():
+            data = request.json
+            prefix = data.get('prefix', 'Packet')
             if not self.current_transmission or not self.current_transmission.is_alive():
                 self.monitor.record_event('transmission_status',
                     current_run=0,
@@ -217,7 +219,7 @@ class UDPServer:
                 self.start_new_session()
                 self.current_transmission = threading.Thread(
                     target=self.send_data,
-                    args=(1,),
+                    args=(1, prefix),
                     daemon=True
                 )
                 self.current_transmission.start()
@@ -323,7 +325,7 @@ class UDPServer:
             return False
         return True
 
-    def send_data(self, runTimes=5):
+    def send_data(self, runTimes=5, prefix='Packet'):
         self.start_ack_listener()
         total_rtt = 0
         total_throughput = 0
@@ -337,7 +339,7 @@ class UDPServer:
             self.last_send_time = 0
             self.total_retransmissions = 0
             start_time = time.time()
-            full_data = generate_packet_data(1, 100000)
+            full_data = generate_packet_data(1, 100000, prefix=prefix)
             if run == 0:
                 print(f"Original data size: {len(full_data)} bytes")
             compressed_data = compress_with_lzma(full_data)

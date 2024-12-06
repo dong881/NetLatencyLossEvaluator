@@ -6,12 +6,14 @@ let toggleBtn, statusText, timeline, throughputChart, packetChart;
 
 // Transmission Control
 async function startTransmission() {
+    const prefix = document.getElementById('prefixInput').value || 'Packet';
     try {
         const response = await fetch('/api/transmission/toggle', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({ prefix })
         });
         
         if (!response.ok) {
