@@ -72,7 +72,7 @@
             overflow: hidden;
             box-sizing: border-box;
             transition: all 0.2s ease;
-            animation: fadeIn 0.1s ease-out;
+            /* animation: fadeIn 0.1s ease-out; */
         }
 
         .packet:hover {
@@ -228,17 +228,25 @@
                 this.container.appendChild(this.content);
                 this.render();
                 
-                this.scrollToBottom();
+                this.scrollToBottomWithReset();
             }
+
             // 新增滾動到底部的方法
-            scrollToBottom() {
-                requestAnimationFrame(() => {
+            scrollToBottomWithReset() {
+                // 先滾動到頂部
+                this.container.scrollTo({
+                    top: 0,
+                    behavior: 'instant' // 立即滾動到頂部
+                });
+
+                // 等待極短暫時間後滾動到底部
+                setTimeout(() => {
                     this.container.scrollTo({
                         top: this.container.scrollHeight,
                         behavior: 'smooth'
                     });
                     this.initialized = true;
-                });
+                }, 50);
             }
 
             render() {
