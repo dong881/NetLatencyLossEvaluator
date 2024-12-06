@@ -111,8 +111,7 @@ function updateHistory(history) {
     const averageRtt = totalRtt / history.length;
     
     // 更新平均 RTT 顯示
-    document.getElementById('averageRtt').textContent = `${averageRtt.toFixed(2)} ms`;
-    
+    document.getElementById('averageRtt').innerHTML = `${averageRtt.toFixed(2)} ms<br> / ${history.length} sessions`;    
     // 原有的歷史記錄顯示邏輯
     const reversedHistory = [...history].reverse();
     reversedHistory.forEach((session, index) => {
