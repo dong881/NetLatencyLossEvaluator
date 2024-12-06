@@ -210,6 +210,7 @@ class UDPServer:
         def toggle_transmission():
             data = request.json
             prefix = data.get('prefix', 'Packet')
+            batch_size = data.get('batch_size', 65515)
             if not self.current_transmission or not self.current_transmission.is_alive():
                 self.monitor.record_event('transmission_status',
                     current_run=0,
@@ -219,7 +220,7 @@ class UDPServer:
                 self.start_new_session()
                 self.current_transmission = threading.Thread(
                     target=self.send_data,
-                    args=(1, prefix),
+                    args=(1, prefix, batch_size),
                     daemon=True
                 )
                 self.current_transmission.start()
@@ -325,7 +326,7 @@ class UDPServer:
             return False
         return True
 
-    def send_data(self, runTimes=5, prefix='Packet'):
+    def send_data(self, runTimes=5, prefix='Packet', batch_size=65515):
         self.start_ack_listener()
         total_rtt = 0
         total_throughput = 0
@@ -345,7 +346,6 @@ class UDPServer:
             compressed_data = compress_with_lzma(full_data)
             with self.ack_lock:
                 self.ack_received.clear()
-            batch_size = 1020
             self.total_sequences = (len(compressed_data) + batch_size - 1) // batch_size
             self.last_path1_start = max(0, self.total_sequences - 5)
             if run == 0:
