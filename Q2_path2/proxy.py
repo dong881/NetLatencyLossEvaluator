@@ -9,8 +9,8 @@ def udp_proxy2():
     client_address = ('192.168.88.12', 5407)  #已設定為轉發實際client ip和port(Q2 path2)
     print("Proxy2 ready to forward packets from server to client")
 
-    # 處理 1000 個封包（10 個封包 * 100 次）
-    for i in range(1000):
+    # 處理 10 個封包
+    for i in range(10):
         data, _ = proxy_socket.recvfrom(1024)
 
         # 加入 5% 的機率延遲
