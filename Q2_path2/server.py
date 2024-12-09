@@ -8,8 +8,8 @@ def udp_server():
     proxy2_address = ('192.168.88.111', 5408)  #已設定為實際server轉發至proxy ip和port(Q2 path2) 
     print("Server starting to send packets via Proxy2")
 
-    # 重複傳輸 100 次，每次傳輸 10 個封包
-    for cycle in range(100):  # 外層迴圈，重複 100 次
+    # 每次傳輸 10 個封包
+    for cycle in range(1):  # 外層迴圈，重複 1 次
         for i in range(1, 11):  # 內層迴圈，發送 10 個封包
             message = f"Packet {i} (Cycle {cycle + 1})"
             server_socket.sendto(message.encode(), proxy2_address)
