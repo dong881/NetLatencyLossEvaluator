@@ -7,8 +7,8 @@ def udp_client():
     client_socket.bind(('192.168.88.12', 5407))  #已設定為實際client ip和port(Q2 path2)
     print("Client listening on port 5407")
 
-    # 接收10個封包*100次循環=1000個封包
-    for i in range(1000):
+    # 接收10個封包
+    for i in range(10):
         start_time = time.time()
         message, _ = client_socket.recvfrom(1024)
         elapsed_time = time.time() - start_time  # 計算接收延遲
