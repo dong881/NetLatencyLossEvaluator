@@ -56,8 +56,10 @@ def check_idle_state():
 
 def format_log(time, tag, message):
     """格式化輸出行"""
+    if tag == "Proxy1":
+        return f"\t{time%100:.2f} [{tag}] {message}\n"
     if tag == "Proxy2":
-        return f"\t\t\t\t\t{time%100:.2f} [{tag}] {message}\n"
+        return f"\t\t\t\t\t\t{time%100:.2f} [{tag}] {message}\n"
     return f"{time%100:.2f} [{tag}] {message}\n"
 
 
@@ -130,13 +132,40 @@ def udp_proxy2_delay():
             print(format_log(time.time(), "Proxy2", f"Error: {e}"), end="")
 
 
+def udp_proxy0_forward():
+    proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    proxy_socket.bind(('192.168.88.111', 6666))
+    client_address = ('192.168.88.12', 6677)
+    print("[Proxy0] Started - Direct forward")
+
+    while True:
+        try:
+            data, _ = proxy_socket.recvfrom(65535)
+            current_time = time.time()
+
+            # 更新統計數據
+            if stats['start_time'] is None:
+                stats['start_time'] = current_time
+            stats['last_packet_time'] = current_time
+            stats['packet_count'] += 1
+            stats['data_total'] += len(data)
+            stats['idle_logged'] = False  # 清除 Idle 狀態標記
+
+            proxy_socket.sendto(data, client_address)
+            print(format_log(current_time, "Proxy0", f"Forwarded: {len(data)} bytes"), end="")
+        except Exception as e:
+            print(format_log(time.time(), "Proxy0", f"Error: {e}"), end="")
+
+
 def main():
-    # 創建兩個線程分別運行 proxy1 和 proxy2
+    # 創建三個線程分別運行 proxy0, proxy1 和 proxy2
+    proxy0_thread = threading.Thread(target=udp_proxy0_forward, daemon=True)
     proxy1_thread = threading.Thread(target=udp_proxy1_loss, daemon=True)
     proxy2_thread = threading.Thread(target=udp_proxy2_delay, daemon=True)
     idle_check_thread = threading.Thread(target=check_idle_state, daemon=True)
     
     # 啟動線程
+    proxy0_thread.start()
     proxy1_thread.start()
     proxy2_thread.start()
     idle_check_thread.start()
@@ -147,7 +176,6 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         print("\n[System] Shutting down proxies...")
-
 
 if __name__ == "__main__":
     main()
