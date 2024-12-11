@@ -164,7 +164,7 @@ function updateStatus(stats) {
 
     // Update Performance Metrics
     document.getElementById('totalRtt').textContent = 
-        `${safeGetNumber(stats, 'performance', 'total_rtt').toFixed(2)} ms`;
+        `${safeGetNumber(stats, 'performance', 'total_rtt').toFixed(2)} s`;
     document.getElementById('currentThroughput').textContent = 
         `${safeGetNumber(stats, 'performance', 'average_throughput').toFixed(2)} KB/s`;
     document.getElementById('packetLossRate').textContent = 
