@@ -105,7 +105,7 @@ function updateHistory(history) {
         tbody.appendChild(emptyRow);
         
         // 清空平均值顯示
-        document.getElementById('averageRtt').textContent = '0.00 ms';
+        document.getElementById('averageRtt').textContent = '0.00 s';
         return;
     }
     
@@ -114,7 +114,7 @@ function updateHistory(history) {
     const averageRtt = totalRtt / history.length;
     
     // 更新平均 RTT 顯示
-    document.getElementById('averageRtt').innerHTML = `${averageRtt.toFixed(2)} ms<br> / ${history.length} sessions`;    
+    document.getElementById('averageRtt').innerHTML = `${averageRtt.toFixed(2)} s<br> / ${history.length} sessions`;    
     // 原有的歷史記錄顯示邏輯
     const reversedHistory = [...history].reverse();
     reversedHistory.forEach((session, index) => {
@@ -122,7 +122,7 @@ function updateHistory(history) {
         row.innerHTML = `
             <td>${history.length - index}</td>
             <td>${session.date}</td>
-            <td>${session.total_rtt.toFixed(2)} ms</td>
+            <td>${session.total_rtt.toFixed(2)} s</td>
             <td>${session.total_packets}</td>
             <td>${(session.packet_loss_rate * 100).toFixed(2)}%</td>
         `;
